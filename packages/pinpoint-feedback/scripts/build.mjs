@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const REPO_BLOB_URL = "https://github.com/dwrth/pinpoint-feedback/blob/main";
+
 const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(pkgDir, "../..");
 const distDir = join(pkgDir, "dist");
@@ -103,7 +105,11 @@ async function build() {
 
   const locales = await writeLocaleEntries();
 
-  await copyFile(join(repoRoot, "README.md"), join(pkgDir, "README.md"));
+  const readme = await readFile(join(repoRoot, "README.md"), "utf8");
+  await writeFile(
+    join(pkgDir, "README.md"),
+    readme.replace(/\]\((?!https?:|#|mailto:)\.?\/?([^)]+)\)/g, (_, path) => `](${REPO_BLOB_URL}/${path})`),
+  );
   await copyFile(join(repoRoot, "LICENSE"), join(pkgDir, "LICENSE"));
   console.log(`pinpoint-feedback: wrote ${entries.length} entries and ${locales.length} locales (${locales.join(", ")}) to dist/`);
 }
