@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@pinpoint-feedback/core": ["./packages/core/src/index.ts"],
+      "@pinpoint-feedback/server": ["./packages/server/src/index.ts"],
+      "@pinpoint-feedback/react": ["./packages/react/src/index.ts"],
+      "@pinpoint-feedback/nextjs": ["./packages/nextjs/src/index.ts"],
+      "@pinpoint-feedback/nextjs/server": ["./packages/nextjs/src/server.ts"]
+    }
+  },
+  "include": ["packages/*/src", "packages/*/test", "vitest.config.ts"]
+}

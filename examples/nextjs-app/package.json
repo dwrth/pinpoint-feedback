@@ -1,0 +1,25 @@
+{
+  "name": "pinpoint-feedback-example-nextjs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "mock-notion": "node mock-notion/server.mjs",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^16.4.6",
+    "pinpoint-feedback": "0.1.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "~5.9.3"
+  }
+}
