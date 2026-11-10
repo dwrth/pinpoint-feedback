@@ -2,6 +2,8 @@
 
 Visual website feedback that lands in Notion. Visitors click a button, get a screenshot of the page, mark it up with pins, arrows, boxes, freehand and text, and send it. Each report becomes a page in **your Notion database** with the original and annotated screenshots attached. Notion is the only backend.
 
+**[Live demo → pinpoint-feedback.dwrth.dev](https://pinpoint-feedback.dwrth.dev)**
+
 ```
 Browser                         Your server route                    Notion
 widget → screenshot → annotate ─POST─▶ validate · rate-limit · dedupe ─API─▶ database page
@@ -51,7 +53,7 @@ Peer dependencies: `react`/`react-dom` 18.2+ for the widget, `next` 14.2+ for th
    export const POST = createFeedbackHandler();
    ```
 
-Missing database columns are created on the first submission. A working app lives in [`examples/nextjs-app`](examples/nextjs-app).
+Missing database columns are created on the first submission. A working app lives in [`examples/nextjs-app`](examples/nextjs-app), deployed at [pinpoint-feedback.dwrth.dev](https://pinpoint-feedback.dwrth.dev).
 
 Custom categories and languages are shared between the layout and the route through one config file ([categories](docs/categories.md), [i18n](docs/i18n.md)):
 

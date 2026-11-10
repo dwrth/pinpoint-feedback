@@ -1,0 +1,14 @@
+# Netlify site for the hosted demo (https://pinpoint-feedback.dwrth.dev).
+# In the Netlify UI: Base directory = (empty, repo root), Package directory = examples/nextjs-app.
+# Netlify's Next.js runtime (OpenNext) is detected automatically and serves the API route as a function.
+#
+# Optional environment variables (Site configuration → Environment variables):
+#   NOTION_API_KEY, NOTION_FEEDBACK_DATABASE_ID  → reports go to that Notion database
+#   (unset)                                        → demo mode: full flow, nothing stored
+
+[build]
+  command = "npm run build && npm run build -w pinpoint-feedback-example-nextjs"
+
+[build.environment]
+  NODE_VERSION = "24"
+  NEXT_TELEMETRY_DISABLED = "1"

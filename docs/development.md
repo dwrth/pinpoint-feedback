@@ -153,6 +153,24 @@ Artifacts:
 
 Add `packages/core/src/locales/<tag>.ts` built with `defineLocale`, exporting the bundle both by name and as default; the build picks it up automatically. See [i18n](i18n.md) for the message catalogs and conventions.
 
+## Hosted demo (Netlify)
+
+`examples/nextjs-app` is deployed to [pinpoint-feedback.dwrth.dev](https://pinpoint-feedback.dwrth.dev) by Netlify's Git integration on every push to `main`; pull requests get deploy previews. Configuration lives in `examples/nextjs-app/netlify.toml`.
+
+| Netlify setting | Value |
+| --- | --- |
+| Base directory | *(empty, repository root, so npm workspaces install)* |
+| Package directory | `examples/nextjs-app` (UI only; it can't be set in `netlify.toml`) |
+| Build command | from `netlify.toml`: `npm run build && npm run build -w pinpoint-feedback-example-nextjs` |
+| Runtime | Netlify's Next.js runtime (OpenNext), detected automatically; the API route runs as a function |
+
+The demo's route (`app/api/feedback/route.ts`) chooses its backend per request:
+
+- `NOTION_API_KEY` and `NOTION_FEEDBACK_DATABASE_ID` set in Netlify: reports go to that database.
+- Either missing: **demo mode**. Capture, annotation, validation, spam and rate-limit checks all run, but `demoBackend` stores nothing, the page shows a banner and the success message says the report wasn't stored.
+
+Run demo mode locally with `NOTION_API_KEY= NOTION_FEEDBACK_DATABASE_ID= npm run dev -w pinpoint-feedback-example-nextjs` (the empty values stop `.env.local` from supplying credentials).
+
 ## Releasing
 
 Releases are published by `.github/workflows/release.yml` when a GitHub release is published. It uses npm [trusted publishing](https://docs.npmjs.com/trusted-publishers) (GitHub OIDC, no stored token) and publishes with provenance.

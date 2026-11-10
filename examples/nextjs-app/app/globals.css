@@ -68,3 +68,18 @@ section { padding: 48px 0; }
   .hero, .split, .features, .plans, .contact { grid-template-columns: 1fr; }
   .site-header nav { display: none; }
 }
+
+.demo-banner {
+  padding: 8px 16px;
+  background: #fef3c7;
+  color: #78350f;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px solid #fde68a;
+}
+
+.demo-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
