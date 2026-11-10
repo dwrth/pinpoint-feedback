@@ -8,6 +8,8 @@ import {
   type FeedbackBackend,
   type FeedbackRecord,
   type FeedbackSubmission,
+  type LocaleBundle,
+  type LocaleOverrides,
   type SubmissionErrorCode,
   type SubmissionResult,
   type UploadableFile,
@@ -31,6 +33,13 @@ export interface FeedbackHandlerOptions {
    * CategoryConfigError when the handler is created.
    */
   categories?: CategoryList;
+  /**
+   * Language of the Notion page body. Only the `report` section is used; property names, select options
+   * and API error messages stay English. Also used by the Notion backend unless `notion.locale` is set. Default: English.
+   */
+  locale?: LocaleBundle;
+  /** Message overrides applied on top of `locale` (only `report` is used). Also used unless `notion.messages` is set. */
+  messages?: LocaleOverrides;
   /** Overrides the projectId sent by the client. */
   projectId?: string;
   /** Cross-origin callers allowed to submit. Default: same-origin only. */
@@ -149,11 +158,24 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
   const getBackend = (): FeedbackBackend => {
     if (backend) return backend;
     if (options.notion) {
-      backend = new NotionFeedbackBackend({ logger, ...options.notion, categories: notionCategories });
+      backend = new NotionFeedbackBackend({
+        logger,
+        ...options.notion,
+        categories: notionCategories,
+        locale: options.notion.locale ?? options.locale,
+        messages: options.notion.messages ?? options.messages,
+      });
       return backend;
     }
     const env = resolveNotionConfigFromEnv();
-    backend = new NotionFeedbackBackend({ ...env, logger, categories, projectId: options.projectId ?? env.projectId });
+    backend = new NotionFeedbackBackend({
+      ...env,
+      logger,
+      categories,
+      locale: options.locale,
+      messages: options.messages,
+      projectId: options.projectId ?? env.projectId,
+    });
     return backend;
   };
   const checksDuplicatesItself = () => backend instanceof NotionFeedbackBackend;

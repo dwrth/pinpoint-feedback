@@ -1,5 +1,7 @@
 import { Client } from "@notionhq/client";
 import {
+  en,
+  mergeLocale,
   resolveCategories,
   type CategoryDefinition,
   type CategoryList,
@@ -7,6 +9,8 @@ import {
   type FeedbackRecord,
   type FeedbackRecordInput,
   type FileUploader,
+  type LocaleBundle,
+  type LocaleOverrides,
 } from "@pinpoint-feedback/core";
 import { normalizeNotionId } from "../env";
 import { NotionBackendError } from "../errors";
@@ -37,6 +41,14 @@ export interface NotionBackendOptions {
    * When the backend is created by `createFeedbackRequestHandler`, defaults to the handler's `categories`.
    */
   categories?: CategoryList;
+  /**
+   * Language of the page body (headings, labels, summaries, dates). Only the `report` section is used.
+   * Property names and select options are never translated. Default: English. When the backend is created
+   * by `createFeedbackRequestHandler`, defaults to the handler's `locale`.
+   */
+  locale?: LocaleBundle;
+  /** Overrides applied on top of `locale` (only `report` is used). Defaults to the handler's `messages`. */
+  messages?: LocaleOverrides;
   /** Add missing properties to the data source on first use. Default true. */
   autoSetupSchema?: boolean;
   /** Initial status for new feedback. Default "New". */
@@ -65,6 +77,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
   private readonly client: NotionClientLike;
   private readonly names: NotionPropertyNames;
   readonly categories: readonly CategoryDefinition[];
+  readonly locale: LocaleBundle;
   private readonly autoSetup: boolean;
   private readonly statusDefault: string;
   private readonly descriptionMax: number;
@@ -82,6 +95,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
       new Client({ auth: options.apiKey, baseUrl: options.baseUrl, timeoutMs: options.timeoutMs ?? 30_000, retry: false });
     this.names = { ...DEFAULT_PROPERTY_NAMES, ...options.properties };
     this.categories = resolveCategories(options.categories);
+    this.locale = mergeLocale(options.locale ?? en, options.messages);
     this.autoSetup = options.autoSetupSchema ?? true;
     this.statusDefault = options.statusDefault ?? "New";
     this.descriptionMax = options.descriptionPropertyMaxChars ?? 2000;
@@ -148,7 +162,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
       input.annotatedScreenshot ? this.upload(input.annotatedScreenshot) : undefined,
     ]);
     const uploads: UploadRefs = { screenshot, annotatedScreenshot };
-    const children = buildChildren(s, uploads, this.categories);
+    const children = buildChildren(s, uploads, this.categories, this.locale);
     const first = children.slice(0, NOTION_CHILDREN_PER_REQUEST);
     const rest = children.slice(NOTION_CHILDREN_PER_REQUEST);
 

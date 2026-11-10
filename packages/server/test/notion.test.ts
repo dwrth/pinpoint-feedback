@@ -41,7 +41,8 @@ describe("NotionFeedbackBackend", () => {
     expect(images).toHaveLength(2);
     expect(images[0].image).toMatchObject({ type: "file_upload", file_upload: { id: annotatedId } });
     const text = JSON.stringify(page.children);
-    expect(text).toContain("Cross-origin iframe was not captured");
+    expect(text).toContain("A cross-origin iframe could not be captured.");
+    expect(text).not.toContain("Cross-origin iframe was not captured");
     expect(text).toContain("#1");
     expect(text).toContain("1 arrow");
     expect(text).toContain("Europe/Berlin");

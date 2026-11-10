@@ -1,6 +1,14 @@
 import {
+  createTranslator,
   DEFAULT_CATEGORIES,
+  en,
+  formatList,
+  formatNumber,
+  negotiateLocale,
   type Annotation,
+  type CaptureWarningCode,
+  type LocaleBundle,
+  type Translate,
   type CategoryDefinition,
   type FeedbackCategory,
   type FeedbackPriority,
@@ -154,13 +162,73 @@ const image = (id: string, caption: string): BlockRequest => ({
   image: { type: "file_upload", file_upload: { id }, caption: richText(caption) },
 }) as BlockRequest;
 
-const labelled = (label: string, text: string, link?: string): RichTextItem[] => [
-  ...richText(`${label}: `, { annotations: { bold: true } }),
-  ...richText(text, { link, maxItems: 99 }),
-];
+type EnReport = typeof en.report;
 
-function descriptionBlocks(description: string): BlockRequest[] {
-  if (!description.trim()) return [paragraph(richText("No description provided.", { annotations: { italic: true, color: "gray" } }))];
+const PRIORITY_KEYS = {
+  low: "priorityLow",
+  medium: "priorityMedium",
+  high: "priorityHigh",
+  critical: "priorityCritical",
+} as const satisfies Record<FeedbackPriority, keyof EnReport>;
+
+const WARNING_KEYS = {
+  "cross-origin-iframe": "warningCrossOriginIframe",
+  "cross-origin-image": "warningCrossOriginImage",
+  "tainted-canvas": "warningTaintedCanvas",
+  video: "warningVideo",
+  font: "warningFont",
+  downscaled: "warningDownscaled",
+  unknown: "warningUnknown",
+} as const satisfies Record<CaptureWarningCode, keyof EnReport>;
+
+const SHAPE_KEYS = {
+  arrow: "arrowCount",
+  rectangle: "rectangleCount",
+  freehand: "freehandCount",
+} as const satisfies Record<Exclude<Annotation["type"], "pin" | "text">, keyof EnReport>;
+
+interface ReportContext {
+  locale: string;
+  t: Translate<EnReport>;
+  labelled(label: string, text: string, link?: string): RichTextItem[];
+  integer(n: number): string;
+  size(width: number, height: number): string;
+}
+
+function reportContext(bundle: LocaleBundle): ReportContext {
+  const locale = bundle.locale;
+  const t = createTranslator<EnReport>(locale, bundle.report);
+  const integer = (n: number) => formatNumber(locale, n, { useGrouping: false, maximumFractionDigits: 0 });
+  return {
+    locale,
+    t,
+    integer,
+    size: (width, height) => t("dimensions", { width: integer(width), height: integer(height) }),
+    labelled: (label, text, link) => [
+      ...richText(t("fieldLabel", { label }), { annotations: { bold: true } }),
+      ...richText(text, { link, maxItems: 99 }),
+    ],
+  };
+}
+
+/** Category name for the page body: the per-locale label when the category defines one. */
+function localizedCategoryLabel(category: CategoryDefinition, locale: string): string {
+  const labels = category.labels;
+  if (!labels) return category.label;
+  const tags = Object.keys(labels);
+  const match = negotiateLocale(tags, [locale], "");
+  return (match && labels[match]) || category.label;
+}
+
+function formatSubmittedAt(iso: string, locale: string, t: Translate<EnReport>): string | undefined {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(date);
+  return t("dateTimeUtc", { dateTime });
+}
+
+function descriptionBlocks(description: string, { t }: ReportContext): BlockRequest[] {
+  if (!description.trim()) return [paragraph(richText(t("noDescription"), { annotations: { italic: true, color: "gray" } }))];
   const blocks: BlockRequest[] = [];
   for (const para of description.split(/\n{2,}/)) {
     const text = para.trim();
@@ -171,31 +239,28 @@ function descriptionBlocks(description: string): BlockRequest[] {
   return blocks;
 }
 
-const SHAPE_LABELS: Record<Exclude<Annotation["type"], "pin" | "text">, [string, string]> = {
-  arrow: ["arrow", "arrows"],
-  rectangle: ["rectangle", "rectangles"],
-  freehand: ["freehand drawing", "freehand drawings"],
-};
-
-function annotationBlocks(annotations: Annotation[]): BlockRequest[] {
+function annotationBlocks(annotations: Annotation[], ctx: ReportContext): BlockRequest[] {
+  const { t, locale, labelled } = ctx;
   const blocks: BlockRequest[] = [];
   const pins = annotations.filter((a) => a.type === "pin").sort((a, b) => a.number - b.number);
   for (const pin of pins) {
     blocks.push(bullet([
-      ...richText(`#${pin.number}`, { annotations: { bold: true } }),
-      ...richText(pin.note ? ` — ${pin.note}` : " (no note)", pin.note ? {} : { annotations: { italic: true, color: "gray" } }),
+      ...richText(t("pinNumber", { number: ctx.integer(pin.number) }), { annotations: { bold: true } }),
+      ...(pin.note
+        ? richText(` — ${pin.note}`)
+        : richText(` ${t("pinNoNote")}`, { annotations: { italic: true, color: "gray" } })),
     ]));
   }
   for (const a of annotations) {
-    if (a.type === "text") blocks.push(bullet(labelled("Text", `“${a.text}”`)));
+    if (a.type === "text") blocks.push(bullet(labelled(t("textAnnotationLabel"), t("quotedText", { text: a.text }))));
   }
-  const counts = new Map<keyof typeof SHAPE_LABELS, number>();
+  const counts = new Map<keyof typeof SHAPE_KEYS, number>();
   for (const a of annotations) {
     if (a.type === "arrow" || a.type === "rectangle" || a.type === "freehand") counts.set(a.type, (counts.get(a.type) ?? 0) + 1);
   }
   if (counts.size > 0) {
-    const parts = [...counts].map(([type, n]) => `${n} ${SHAPE_LABELS[type][n === 1 ? 0 : 1]}`);
-    blocks.push(bullet(labelled("Shapes", parts.join(", "))));
+    const parts = [...counts].map(([type, count]) => t(SHAPE_KEYS[type], { count }));
+    blocks.push(bullet(labelled(t("shapesLabel"), formatList(locale, parts))));
   }
   return blocks;
 }
@@ -204,62 +269,71 @@ export function buildChildren(
   s: FeedbackSubmission,
   uploads: UploadRefs,
   categories: readonly CategoryDefinition[] = DEFAULT_CATEGORIES,
+  locale: LocaleBundle = en,
 ): BlockRequest[] {
+  const ctx = reportContext(locale);
+  const { t, labelled } = ctx;
   const m = s.metadata;
   const category = categoryOf(s, categories);
   const blocks: BlockRequest[] = [];
   const reporter = s.reporter?.name || s.reporter?.email;
-  const summary = [
-    `${category.label} · ${PRIORITY_LABELS[s.priority]} priority`,
-    reporter ? ` · reported by ${reporter}` : "",
-  ].join("");
+  const summaryParams = { category: localizedCategoryLabel(category, ctx.locale), priority: t(PRIORITY_KEYS[s.priority]) };
+  const summary = reporter ? t("calloutWithReporter", { ...summaryParams, reporter }) : t("callout", summaryParams);
   blocks.push({
     object: "block",
     type: "callout",
     callout: { rich_text: richText(summary), icon: { type: "emoji", emoji: category.emoji ?? DEFAULT_CATEGORY_EMOJI }, color: "gray_background" },
   } as BlockRequest);
 
-  blocks.push(heading("Description"), ...descriptionBlocks(s.description));
+  blocks.push(heading(t("headingDescription")), ...descriptionBlocks(s.description, ctx));
 
   if (uploads.annotatedScreenshot) {
-    blocks.push(heading("Annotated screenshot"), image(uploads.annotatedScreenshot.id, "Screenshot with annotations"));
+    blocks.push(heading(t("headingAnnotatedScreenshot")), image(uploads.annotatedScreenshot.id, t("captionAnnotatedScreenshot")));
   }
   if (uploads.screenshot) {
-    blocks.push(heading("Original screenshot"), image(uploads.screenshot.id, "Original capture without annotations"));
+    blocks.push(heading(t("headingOriginalScreenshot")), image(uploads.screenshot.id, t("captionOriginalScreenshot")));
   }
 
-  const annotations = annotationBlocks(s.annotations);
-  if (annotations.length > 0) blocks.push(heading("Annotations"), ...annotations);
+  const annotations = annotationBlocks(s.annotations, ctx);
+  if (annotations.length > 0) blocks.push(heading(t("headingAnnotations")), ...annotations);
 
   const warnings = s.capture?.warnings ?? [];
   if (warnings.length > 0) {
-    blocks.push(heading("Capture notes"));
+    blocks.push(heading(t("headingCaptureNotes")));
     for (const w of warnings) {
-      blocks.push(bullet(richText(w.count && w.count > 1 ? `${w.message} (×${w.count})` : w.message || w.code)));
+      const key = WARNING_KEYS[w.code] ?? WARNING_KEYS.unknown;
+      blocks.push(bullet(richText(t(key, { count: w.count && w.count > 0 ? w.count : 1 }))));
     }
   }
 
-  blocks.push(heading("Environment"));
+  blocks.push(heading(t("headingEnvironment")));
+  const captureMethod = s.capture
+    ? t("captureMethodWithSize", {
+        method: t(s.capture.method === "dom" ? "captureMethodDom" : "captureMethodDisplayMedia"),
+        size: ctx.size(s.capture.width, s.capture.height),
+      })
+    : undefined;
   const env: Array<[string, string | undefined, string?]> = [
-    ["URL", m.url, m.url],
-    ["Page title", m.pageTitle || undefined],
-    ["Browser", formatNameVersion(m.browser)],
-    ["Operating system", formatNameVersion(m.os)],
-    ["Viewport", `${m.viewport.width}×${m.viewport.height}`],
-    ["Screen", m.screen.width && m.screen.height ? `${m.screen.width}×${m.screen.height}` : undefined],
-    ["Device pixel ratio", String(Math.round(m.devicePixelRatio * 100) / 100)],
-    ["Language", m.language],
-    ["Timezone", m.timezone],
-    ["Referrer", m.referrer, m.referrer],
-    ["Capture method", s.capture ? `${s.capture.method === "dom" ? "DOM render" : "Screen capture"} (${s.capture.width}×${s.capture.height})` : undefined],
-    ["User agent", m.userAgent || undefined],
+    [t("envUrl"), m.url, m.url],
+    [t("envPageTitle"), m.pageTitle || undefined],
+    [t("envBrowser"), formatNameVersion(m.browser)],
+    [t("envOs"), formatNameVersion(m.os)],
+    [t("envViewport"), ctx.size(m.viewport.width, m.viewport.height)],
+    [t("envScreen"), m.screen.width && m.screen.height ? ctx.size(m.screen.width, m.screen.height) : undefined],
+    [t("envPixelRatio"), formatNumber(ctx.locale, m.devicePixelRatio, { maximumFractionDigits: 2 })],
+    [t("envLanguage"), m.language],
+    [t("envTimezone"), m.timezone],
+    [t("envReferrer"), m.referrer, m.referrer],
+    [t("envCaptureMethod"), captureMethod],
+    [t("envSubmittedAt"), formatSubmittedAt(s.createdAt, ctx.locale, t)],
+    [t("envUserAgent"), m.userAgent || undefined],
   ];
   for (const [label, text, link] of env) {
     if (text) blocks.push(bullet(labelled(label, text, link)));
   }
 
   blocks.push(paragraph([
-    ...richText("Submission ID: ", { annotations: { color: "gray" } }),
+    ...richText(t("fieldLabel", { label: t("submissionId") }), { annotations: { color: "gray" } }),
     ...richText(s.submissionId, { annotations: { code: true, color: "gray" } }),
   ]));
   return blocks;
