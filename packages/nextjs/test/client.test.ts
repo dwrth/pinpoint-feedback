@@ -43,6 +43,12 @@ describe("@pinpoint-feedback/nextjs client entry", () => {
     }
   });
 
+  it("passes categories and defaultCategory through", () => {
+    const categories = [{ id: "perf", label: "Performance", color: "orange" }, "bug"] as const;
+    const out = render(createElement(FeedbackProvider<typeof categories>, { categories, defaultCategory: "perf" }));
+    expect(out.props).toMatchObject({ categories, defaultCategory: "perf", endpoint: DEFAULT_FEEDBACK_ENDPOINT });
+  });
+
   it("re-exports the React API", () => {
     expect(useFeedback).toBe(base.useFeedback);
   });

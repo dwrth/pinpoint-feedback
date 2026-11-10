@@ -4,7 +4,7 @@ import {
   type AnnotationEditor,
   type AnnotationEditorState,
   type CapturedScreenshot,
-  type FeedbackCategory,
+  type CategoryDefinition,
   type FeedbackClient,
   type FeedbackSubmission,
   type Reporter,
@@ -39,7 +39,7 @@ export interface DialogProps {
   onClose: () => void;
   onRetake: (displayMedia: boolean) => void;
   displayMediaSupported: boolean;
-  categories: readonly FeedbackCategory[];
+  categories: readonly CategoryDefinition[];
   showReporterFields: boolean;
   reporter?: Reporter;
   projectId?: string;

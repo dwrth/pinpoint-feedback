@@ -112,3 +112,14 @@ describe("validateSubmission", () => {
     expect(sanitizeText(" a\u0000b\u0007c\n\td ")).toBe("abc\n\td");
   });
 });
+
+describe("custom categories", () => {
+  it("accepts configured category ids and rejects others", async () => {
+    const { validateSubmission } = await import("../src/validation");
+    expect(validateSubmission(valid({ category: "perf" }), { categories: ["perf", "bug"] }).ok).toBe(true);
+    const r = validateSubmission(valid({ category: "perf" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.issues[0]?.message).toMatch(/configure the same categories/);
+    expect(validateSubmission(valid({ category: "bug" }), { categories: ["perf"] }).ok).toBe(false);
+  });
+});

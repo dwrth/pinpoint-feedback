@@ -1,5 +1,5 @@
-import type { SubmissionResult } from "@pinpoint-feedback/core";
-import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { CategoryList, SubmissionResult } from "@pinpoint-feedback/core";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FeedbackProvider, FeedbackWidget, useFeedback } from "../src";
 import { withPropertyFallbacks } from "../src/ShadowRoot";
@@ -420,6 +420,129 @@ describe("FeedbackWidget", () => {
     fireEvent.keyDown(window, { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true });
     await shadow().findByRole("dialog", {}, { timeout: 3000 });
     expect(capture).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("categories", () => {
+  const custom = [
+    "bug",
+    { id: "perf", label: "Performance", color: "orange", emoji: "⚡" },
+    { id: "a11y", label: "Accessibility" },
+  ] as const;
+
+  function categoryRadios() {
+    return within(shadow().getByRole("group", { name: "Category" })).getAllByRole("radio") as HTMLInputElement[];
+  }
+
+  it("shows the built-in categories by default", async () => {
+    const { client } = makeClient();
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} />);
+    await openDialog();
+    const labels = categoryRadios().map((r) => r.closest("label")!.textContent);
+    expect(labels).toEqual(["Bug", "Design", "Content", "Feature request", "Other"]);
+    expect(categoryRadios()[0]!.checked).toBe(true);
+  });
+
+  it("labels custom categories from their definitions, with a color dot when colored", async () => {
+    const { client } = makeClient();
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={custom} defaultCategory="perf" />);
+    await openDialog();
+    const radios = categoryRadios();
+    expect(radios.map((r) => r.closest("label")!.textContent)).toEqual(["Bug", "Performance", "Accessibility"]);
+    expect(radios.map((r) => r.value)).toEqual(["bug", "perf", "a11y"]);
+    expect(shadow().getByRole("radio", { name: "Performance" })).toHaveProperty("checked", true);
+    const dot = (radio: HTMLInputElement) => radio.closest("label")!.querySelector('span[aria-hidden="true"]');
+    expect(dot(radios[1]!)?.className).toContain("bg-(--pp-cat-orange)");
+    expect(dot(radios[2]!)).toBeNull();
+  });
+
+  it("submits the custom category id", async () => {
+    const { client, submit } = makeClient([OK]);
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={custom} />);
+    await openDialog();
+    fillTitle("Slow");
+    fireEvent.click(shadow().getByRole("radio", { name: "Accessibility" }));
+    fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(submit.mock.calls[0]![0].category).toBe("a11y");
+  });
+
+  it("falls back to the first category when defaultCategory is not in the list", async () => {
+    const { client, submit } = makeClient([OK]);
+    const categories: CategoryList = [{ id: "perf", label: "Performance" }, "bug"];
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={categories} defaultCategory="design" />);
+    await openDialog();
+    expect(shadow().getByRole("radio", { name: "Performance" })).toHaveProperty("checked", true);
+    fillTitle("Hi");
+    fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(submit.mock.calls[0]![0].category).toBe("perf");
+  });
+
+  it("logs and falls back to the built-in categories on invalid config", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { client } = makeClient();
+      const invalid: CategoryList = [{ id: "perf", label: "Perf, speed" }];
+      render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={invalid} />);
+      await openDialog();
+      expect(categoryRadios().map((r) => r.value)).toEqual(["bug", "design", "content", "feature", "other"]);
+      expect(error).toHaveBeenCalledWith(expect.stringMatching(/Invalid "categories" prop: categories\[0\]: label/));
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("logs invalid config once across re-renders with equal inline arrays", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { client } = makeClient();
+      const make = (): CategoryList => [{ id: "x y", label: "Bad id" }];
+      const { rerender } = render(<FeedbackWidget client={client} categories={make()} />);
+      rerender(<FeedbackWidget client={client} categories={make()} />);
+      rerender(<FeedbackWidget client={client} categories={make()} />);
+      await waitFor(() => expect(error).toHaveBeenCalled());
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("uses a select for more than six categories", async () => {
+    const { client, submit } = makeClient([OK]);
+    const many = ["bug", "design", "content", "feature", "other", { id: "perf", label: "Performance", color: "orange" }, { id: "seo", label: "SEO" }] as const;
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={many} defaultCategory="perf" />);
+    await openDialog();
+    expect(shadow().queryByRole("group", { name: "Category" })).toBeNull();
+    const select = shadow().getByLabelText("Category") as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
+      "Bug",
+      "Design",
+      "Content",
+      "Feature request",
+      "Other",
+      "Performance",
+      "SEO",
+    ]);
+    expect(select.value).toBe("perf");
+    fireEvent.change(select, { target: { value: "seo" } });
+    expect(select.value).toBe("seo");
+    fillTitle("Meta tags");
+    fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(submit.mock.calls[0]![0].category).toBe("seo");
+  });
+
+  it("hides the field for a single category and still sends it", async () => {
+    const { client, submit } = makeClient([OK]);
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={[{ id: "ux", label: "UX" }]} />);
+    await openDialog();
+    expect(shadow().queryByText("Category")).toBeNull();
+    fillTitle("Hi");
+    fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(submit.mock.calls[0]![0].category).toBe("ux");
   });
 });
 

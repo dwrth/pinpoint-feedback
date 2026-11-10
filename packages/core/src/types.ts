@@ -1,5 +1,8 @@
-export const FEEDBACK_CATEGORIES = ["bug", "design", "content", "feature", "other"] as const;
-export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
+import type { BuiltinCategoryId } from "./categories";
+
+/** Ids of the built-in categories. Custom categories are configured via `defineCategories`. */
+export const FEEDBACK_CATEGORIES = ["bug", "design", "content", "feature", "other"] as const satisfies readonly BuiltinCategoryId[];
+export type FeedbackCategory = BuiltinCategoryId;
 
 export const FEEDBACK_PRIORITIES = ["low", "medium", "high", "critical"] as const;
 export type FeedbackPriority = (typeof FEEDBACK_PRIORITIES)[number];
@@ -175,7 +178,8 @@ export interface FeedbackSubmission {
   submissionId: string;
   title: string;
   description: string;
-  category: FeedbackCategory;
+  /** Category id; must be one of the categories configured on the server handler. */
+  category: string;
   priority: FeedbackPriority;
   reporter?: Reporter;
   metadata: BrowserMetadata;

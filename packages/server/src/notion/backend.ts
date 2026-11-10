@@ -1,5 +1,13 @@
 import { Client } from "@notionhq/client";
-import type { FeedbackBackend, FeedbackRecord, FeedbackRecordInput, FileUploader } from "@pinpoint-feedback/core";
+import {
+  resolveCategories,
+  type CategoryDefinition,
+  type CategoryList,
+  type FeedbackBackend,
+  type FeedbackRecord,
+  type FeedbackRecordInput,
+  type FileUploader,
+} from "@pinpoint-feedback/core";
 import { normalizeNotionId } from "../env";
 import { NotionBackendError } from "../errors";
 import type { AppendChildrenArgs, CreatePageArgs, NotionClientLike, QueryDataSourceArgs } from "./client";
@@ -23,6 +31,12 @@ export interface NotionBackendOptions {
   /** Notion API base URL, e.g. a local mock server. */
   baseUrl?: string;
   properties?: Partial<NotionPropertyNames>;
+  /**
+   * Categories written to the Category property (as their label) and used for the page callout icon.
+   * Missing options are added to the Category select when `autoSetupSchema` is on. Default: the built-in categories.
+   * When the backend is created by `createFeedbackRequestHandler`, defaults to the handler's `categories`.
+   */
+  categories?: CategoryList;
   /** Add missing properties to the data source on first use. Default true. */
   autoSetupSchema?: boolean;
   /** Initial status for new feedback. Default "New". */
@@ -50,6 +64,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
   readonly databaseId: string;
   private readonly client: NotionClientLike;
   private readonly names: NotionPropertyNames;
+  readonly categories: readonly CategoryDefinition[];
   private readonly autoSetup: boolean;
   private readonly statusDefault: string;
   private readonly descriptionMax: number;
@@ -66,6 +81,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
     this.client = (options.client as NotionClientLike | undefined) ??
       new Client({ auth: options.apiKey, baseUrl: options.baseUrl, timeoutMs: options.timeoutMs ?? 30_000, retry: false });
     this.names = { ...DEFAULT_PROPERTY_NAMES, ...options.properties };
+    this.categories = resolveCategories(options.categories);
     this.autoSetup = options.autoSetupSchema ?? true;
     this.statusDefault = options.statusDefault ?? "New";
     this.descriptionMax = options.descriptionPropertyMaxChars ?? 2000;
@@ -89,6 +105,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
         names: this.names,
         autoSetup: this.autoSetup,
         logger: this.logger,
+        categories: this.categories,
         call: (fn) => this.call(fn),
       }).catch((error: unknown) => {
         if (this.schemaPromise === promise) this.schemaPromise = undefined;
@@ -131,7 +148,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
       input.annotatedScreenshot ? this.upload(input.annotatedScreenshot) : undefined,
     ]);
     const uploads: UploadRefs = { screenshot, annotatedScreenshot };
-    const children = buildChildren(s, uploads);
+    const children = buildChildren(s, uploads, this.categories);
     const first = children.slice(0, NOTION_CHILDREN_PER_REQUEST);
     const rest = children.slice(NOTION_CHILDREN_PER_REQUEST);
 
@@ -145,6 +162,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
                 statusDefault: this.statusDefault,
                 descriptionPropertyMaxChars: this.descriptionMax,
                 projectId: this.projectId,
+                categories: this.categories,
               }),
               children: first,
             } as CreatePageArgs),

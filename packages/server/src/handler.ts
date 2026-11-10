@@ -2,7 +2,9 @@ import {
   ALLOWED_IMAGE_TYPES,
   FORM_FIELDS,
   LIMITS,
+  resolveCategories,
   validateSubmission,
+  type CategoryList,
   type FeedbackBackend,
   type FeedbackRecord,
   type FeedbackSubmission,
@@ -23,6 +25,12 @@ export interface FeedbackHandlerOptions {
   /** Custom persistence. Either this or `notion` is required; when both are absent, Notion is configured from env. */
   backend?: FeedbackBackend;
   notion?: NotionBackendOptions;
+  /**
+   * Accepted feedback categories; must match the widget's `categories`. Default: the built-in categories.
+   * Also used by the Notion backend unless `notion.categories` is set. Invalid lists throw a
+   * CategoryConfigError when the handler is created.
+   */
+  categories?: CategoryList;
   /** Overrides the projectId sent by the client. */
   projectId?: string;
   /** Cross-origin callers allowed to submit. Default: same-origin only. */
@@ -125,6 +133,9 @@ async function readBodyLimited(request: Request, limit: number): Promise<Uint8Ar
  */
 export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {}): FeedbackRequestHandler {
   const logger = options.logger ?? console;
+  const categories = resolveCategories(options.categories);
+  const categoryIds = categories.map((c) => c.id);
+  const notionCategories = options.notion?.categories ? resolveCategories(options.notion.categories) : categories;
   const maxFileBytes = options.maxFileBytes ?? LIMITS.fileMaxBytes;
   const minFillTimeMs = options.minFillTimeMs ?? LIMITS.minFillTimeMs;
   const trustProxy = options.trustProxy ?? true;
@@ -138,11 +149,11 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
   const getBackend = (): FeedbackBackend => {
     if (backend) return backend;
     if (options.notion) {
-      backend = new NotionFeedbackBackend({ logger, ...options.notion });
+      backend = new NotionFeedbackBackend({ logger, ...options.notion, categories: notionCategories });
       return backend;
     }
     const env = resolveNotionConfigFromEnv();
-    backend = new NotionFeedbackBackend({ ...env, logger, projectId: options.projectId ?? env.projectId });
+    backend = new NotionFeedbackBackend({ ...env, logger, categories, projectId: options.projectId ?? env.projectId });
     return backend;
   };
   const checksDuplicatesItself = () => backend instanceof NotionFeedbackBackend;
@@ -229,7 +240,7 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
     } catch {
       throw fail("validation", "The submission data is not valid JSON.");
     }
-    const validated = validateSubmission(raw);
+    const validated = validateSubmission(raw, { categories: categoryIds });
     if (!validated.ok) {
       throw fail("validation", "The submission is invalid.", { details: { issues: validated.issues } });
     }

@@ -1,14 +1,22 @@
 // Client boundary: vite.config.ts prepends the "use client" directive to the built entry.
+import type { CategoryList } from "@pinpoint-feedback/core";
 import { createElement, type ReactElement } from "react";
 import {
   FeedbackProvider as BaseFeedbackProvider,
   FeedbackWidget as BaseFeedbackWidget,
+  type DefaultCategoryList,
   type FeedbackProviderProps,
   type FeedbackWidgetProps,
 } from "@pinpoint-feedback/react";
 
 export { useFeedback } from "@pinpoint-feedback/react";
 export type {
+  CategoryColor,
+  CategoryDefinition,
+  CategoryId,
+  CategoryInput,
+  CategoryList,
+  DefaultCategoryList,
   FeedbackController,
   FeedbackProviderProps,
   FeedbackWidgetError,
@@ -34,7 +42,7 @@ function readPublicEnv(): { endpoint?: string; projectId?: string } {
   }
 }
 
-function withDefaults<P extends FeedbackWidgetProps>(props: P): P {
+function withDefaults<P extends FeedbackWidgetProps<CategoryList>>(props: P): P {
   const env = readPublicEnv();
   return {
     ...props,
@@ -47,14 +55,21 @@ function withDefaults<P extends FeedbackWidgetProps>(props: P): P {
  * Feedback widget for the Next.js App Router. Can be rendered directly from a Server
  * Component layout; `children` are optional.
  *
+ * Pass `categories` as a plain array (e.g. from a shared `feedback.config.ts` built with
+ * `defineCategories` from `"pinpoint-feedback"`) so the same list reaches the route handler.
+ *
  * ```tsx
- * <FeedbackProvider position="bottom-right" theme="light" />
+ * <FeedbackProvider position="bottom-right" theme="light" categories={categories} defaultCategory="bug" />
  * ```
  */
-export function FeedbackProvider(props: FeedbackProviderProps): ReactElement {
-  return createElement(BaseFeedbackProvider, withDefaults(props));
+export function FeedbackProvider<const C extends CategoryList = DefaultCategoryList>(
+  props: FeedbackProviderProps<C>,
+): ReactElement {
+  return createElement(BaseFeedbackProvider<C>, withDefaults(props));
 }
 
-export function FeedbackWidget(props: FeedbackWidgetProps): ReactElement {
-  return createElement(BaseFeedbackWidget, withDefaults(props));
+export function FeedbackWidget<const C extends CategoryList = DefaultCategoryList>(
+  props: FeedbackWidgetProps<C>,
+): ReactElement {
+  return createElement(BaseFeedbackWidget<C>, withDefaults(props));
 }

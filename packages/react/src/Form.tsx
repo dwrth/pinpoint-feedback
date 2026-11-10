@@ -1,14 +1,15 @@
-import { FEEDBACK_PRIORITIES, type FeedbackCategory, type FeedbackPriority } from "@pinpoint-feedback/core";
+import { FEEDBACK_PRIORITIES, type CategoryDefinition, type FeedbackPriority } from "@pinpoint-feedback/core";
 import { useId, type ReactNode, type Ref } from "react";
-import { CATEGORY_LABELS, PRIORITY_LABELS, type Draft, type DraftField, type FieldErrors } from "./draft";
-import { GlobeIcon } from "./icons";
+import { CATEGORY_DOT, SEGMENTED_CATEGORIES_MAX } from "./categories";
+import { PRIORITY_LABELS, type Draft, type DraftField, type FieldErrors } from "./draft";
+import { ChevronDownIcon, GlobeIcon } from "./icons";
 
 export interface FeedbackFormProps {
   draft: Draft;
   onChange: (patch: Partial<Draft>) => void;
   onBlurField: (field: DraftField) => void;
   errors: FieldErrors;
-  categories: readonly FeedbackCategory[];
+  categories: readonly CategoryDefinition[];
   showReporterFields: boolean;
   disabled: boolean;
   titleRef: Ref<HTMLInputElement>;
@@ -50,6 +51,87 @@ function Field({
         </p>
       ) : null}
     </div>
+  );
+}
+
+function CategoryDot({ category }: { category: CategoryDefinition }) {
+  if (!category.color) return null;
+  return <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${CATEGORY_DOT[category.color]}`} />;
+}
+
+/** Segmented buttons for short lists, a native select for long ones; hidden when there is nothing to choose. */
+function CategoryField({
+  id,
+  categories,
+  value,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  categories: readonly CategoryDefinition[];
+  value: string;
+  disabled: boolean;
+  onChange: (category: string) => void;
+}) {
+  if (categories.length <= 1) return null;
+
+  if (categories.length > SEGMENTED_CATEGORIES_MAX) {
+    const selected = categories.find((c) => c.id === value);
+    return (
+      <Field id={id} label="Category">
+        <div className="relative">
+          {selected ? (
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+              <CategoryDot category={selected} />
+            </span>
+          ) : null}
+          <select
+            id={id}
+            name="category"
+            className={`${inputClass} appearance-none pr-8 ${selected?.color ? "pl-6.5" : ""}`}
+            value={selected ? value : ""}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            {selected ? null : <option value="" disabled />}
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon
+            size={14}
+            className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-fg-subtle"
+          />
+        </div>
+      </Field>
+    );
+  }
+
+  return (
+    <fieldset className="flex flex-col gap-1.5" disabled={disabled}>
+      <legend className="mb-1.5 text-xs font-medium text-fg">Category</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {categories.map((category) => (
+          <label
+            key={category.id}
+            className="relative inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors duration-150 select-none hover:border-line-strong hover:text-fg has-checked:border-accent has-checked:bg-accent/10 has-checked:text-fg has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
+          >
+            <input
+              type="radio"
+              name={id}
+              value={category.id}
+              className="sr-only"
+              checked={value === category.id}
+              onChange={() => onChange(category.id)}
+            />
+            <CategoryDot category={category} />
+            {category.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -114,27 +196,13 @@ export function FeedbackForm({
         />
       </Field>
 
-      <fieldset className="flex flex-col gap-1.5" disabled={disabled}>
-        <legend className="mb-1.5 text-xs font-medium text-fg">Category</legend>
-        <div className="flex flex-wrap gap-1.5">
-          {categories.map((category) => (
-            <label
-              key={category}
-              className="relative inline-flex cursor-pointer items-center rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors duration-150 select-none hover:border-line-strong hover:text-fg has-checked:border-accent has-checked:bg-accent/10 has-checked:text-fg has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
-            >
-              <input
-                type="radio"
-                name={ids.category}
-                value={category}
-                className="sr-only"
-                checked={draft.category === category}
-                onChange={() => onChange({ category })}
-              />
-              {CATEGORY_LABELS[category]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <CategoryField
+        id={ids.category}
+        categories={categories}
+        value={draft.category}
+        disabled={disabled}
+        onChange={(category) => onChange({ category })}
+      />
 
       <fieldset className="flex flex-col gap-1.5" disabled={disabled}>
         <legend className="mb-1.5 text-xs font-medium text-fg">Priority</legend>

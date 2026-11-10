@@ -490,8 +490,6 @@ describe("getAccessibleFrameDocument (declared src)", () => {
     const iframe = document.createElement("iframe");
     iframe.setAttribute("src", "https://third-party.example/embed");
     Object.defineProperty(iframe, "contentDocument", { value: document.implementation.createHTMLDocument("") });
-    document.body.appendChild(iframe);
     expect(getAccessibleFrameDocument(iframe)).toBeNull();
-    iframe.remove();
   });
 });

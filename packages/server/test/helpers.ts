@@ -90,6 +90,7 @@ export class FakeNotion {
   pages: FakePage[] = [];
   createDelayMs = 0;
   private seq = 0;
+  private optionSeq = 0;
 
   private async rec<T>(method: string, args: Any, fn: () => T | Promise<T>): Promise<T> {
     this.calls.push({ method, args });
@@ -118,7 +119,17 @@ export class FakeNotion {
       this.rec("dataSources.update", args, () => {
         for (const [name, cfg] of Object.entries<Any>(args.properties)) {
           const type = Object.keys(cfg)[0]!;
-          this.schema[name] = { id: name, name, type, [type]: cfg[type] };
+          const prev = this.schema[name]?.[type]?.options as Any[] | undefined;
+          const config = Array.isArray(cfg[type]?.options)
+            ? {
+                ...cfg[type],
+                options: cfg[type].options.map((o: Any) => {
+                  const match = prev?.find((p) => (o.id && p.id === o.id) || p.name === o.name);
+                  return { ...match, ...o, id: o.id ?? match?.id ?? `opt-${++this.optionSeq}`, color: o.color ?? match?.color ?? "default" };
+                }),
+              }
+            : cfg[type];
+          this.schema[name] = { id: name, name, type, [type]: config };
         }
         return { object: "data_source", id: args.data_source_id, properties: { ...this.schema } };
       }),

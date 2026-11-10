@@ -2,18 +2,19 @@ import {
   collectBrowserMetadata,
   createDefaultCapturer,
   DisplayMediaScreenshotCapturer,
-  FEEDBACK_CATEGORIES,
   PINPOINT_IGNORE_ATTRIBUTE,
   type CapturedScreenshot,
+  type CategoryList,
   type FeedbackClient,
   type ScreenshotCapturer,
 } from "@pinpoint-feedback/core";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { pickCategory, useResolvedCategories } from "./categories";
 import { createDraft, type Draft } from "./draft";
 import { formatHotkey, getDefaultClient, nextFrames, useHotkey, useResolvedTheme } from "./hooks";
 import { AlertIcon, CameraIcon, MessageIcon, MonitorIcon, Spinner } from "./icons";
 import { ShadowPortal } from "./ShadowRoot";
-import type { FeedbackController, FeedbackWidgetPosition, FeedbackWidgetProps } from "./types";
+import type { DefaultCategoryList, FeedbackController, FeedbackWidgetPosition, FeedbackWidgetProps } from "./types";
 
 const loadDialog = () => import("./Dialog");
 const Dialog = lazy(loadDialog);
@@ -57,7 +58,8 @@ function isDisplayMediaSupported(): boolean {
   }
 }
 
-export interface WidgetInternalProps extends FeedbackWidgetProps {
+export interface WidgetInternalProps extends Omit<FeedbackWidgetProps<CategoryList>, "defaultCategory"> {
+  defaultCategory?: string;
   onController?: (controller: FeedbackController) => void;
 }
 
@@ -72,7 +74,7 @@ export function Widget({
   buttonLabel = "Feedback",
   hotkey = false,
   zIndex = 2147483000,
-  categories = FEEDBACK_CATEGORIES,
+  categories: categoriesProp,
   defaultCategory,
   defaultPriority = "medium",
   capturer,
@@ -84,6 +86,7 @@ export function Widget({
   onController,
 }: WidgetInternalProps) {
   const resolvedTheme = useResolvedTheme(theme);
+  const categories = useResolvedCategories(categoriesProp);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [screenshot, setScreenshot] = useState<CapturedScreenshot | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -146,7 +149,7 @@ export function Widget({
       (d) =>
         d ??
         createDraft({
-          category: latest.current.defaultCategory ?? latest.current.categories[0] ?? "bug",
+          category: pickCategory(latest.current.categories, latest.current.defaultCategory),
           priority: latest.current.defaultPriority,
           metadata: (getMetadata ?? collectBrowserMetadata)(),
         }),
@@ -349,6 +352,10 @@ export function Widget({
   );
 }
 
-export function FeedbackWidget(props: FeedbackWidgetProps) {
+/**
+ * Standalone feedback widget. Pass `categories` inline or from `defineCategories()`;
+ * `defaultCategory` is checked against the ids in that list.
+ */
+export function FeedbackWidget<const C extends CategoryList = DefaultCategoryList>(props: FeedbackWidgetProps<C>) {
   return <Widget {...props} />;
 }

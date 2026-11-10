@@ -8,7 +8,8 @@
  *   GET    /__mock/health
  *   GET    /__mock/pages      created pages (with `plain` property values and children)
  *   GET    /__mock/uploads    file uploads (metadata, size, leading bytes)
- *   GET    /__mock/schema     current data source properties
+ *   GET    /__mock/schema     current data source properties ({properties}; select/multi_select/status
+ *                              options include ids and colors, like the real API)
  *   GET    /__mock/requests   request log
  *   POST   /__mock/fail       {status?, code?, times?, method?, path?} make matching requests fail
  *                              (default: every POST /v1/pages; `path` may end with * for a prefix)
@@ -136,16 +137,44 @@ function pageObject(page) {
   };
 }
 
+const CHOICE_TYPES = new Set(["select", "multi_select", "status"]);
+
+function mockError(status, code, message) {
+  return Object.assign(new Error(message), { status, code });
+}
+
+const newOption = (o) => ({ id: randomUUID().slice(0, 8), name: o.name, color: o.color ?? "default", description: o.description ?? null });
+
+// Mirrors Notion: the sent `options` array is the complete list; omitted options are removed and
+// options are matched to existing ones by id, then by name.
+function mergeOptions(previous, sent, propertyName) {
+  return sent.map((o) => {
+    const match = previous.find((p) => (o.id && p.id === o.id) || (!o.id && p.name === o.name));
+    if (o.id && !match) throw mockError(400, "validation_error", `Option id ${o.id} does not exist on "${propertyName}".`);
+    if (!match && typeof o.name !== "string") throw mockError(400, "validation_error", `Options of "${propertyName}" need a name.`);
+    if (typeof o.name === "string" && o.name.includes(",")) {
+      throw mockError(400, "validation_error", "Select option names cannot contain commas.");
+    }
+    return match ? { ...match, ...(o.color ? { color: o.color } : {}) } : newOption(o);
+  });
+}
+
 function updateProperties(changes) {
   for (const [name, config] of Object.entries(changes ?? {})) {
     if (config === null) {
       delete state.properties[name];
       continue;
     }
-    const type = Object.keys(config).find((k) => k !== "name" && k !== "description");
-    if (!type) throw Object.assign(new Error(`Invalid property schema for "${name}".`), { status: 400, code: "validation_error" });
+    const type = Object.keys(config).find((k) => k !== "name" && k !== "description" && k !== "type");
+    if (!type) throw mockError(400, "validation_error", `Invalid property schema for "${name}".`);
     const existing = state.properties[name];
-    state.properties[name] = { id: existing?.id ?? randomUUID().slice(0, 4), name, type, [type]: config[type] ?? {} };
+    let typeConfig = config[type] ?? {};
+    if (CHOICE_TYPES.has(type)) {
+      const previous = (existing?.type === type ? existing[type].options : undefined) ?? [];
+      const options = Array.isArray(typeConfig.options) ? mergeOptions(previous, typeConfig.options, name) : previous;
+      typeConfig = { ...typeConfig, options };
+    }
+    state.properties[name] = { id: existing?.id ?? randomUUID().slice(0, 4), name, type, [type]: typeConfig };
   }
 }
 
@@ -200,8 +229,15 @@ function createPage(body) {
     if (!(schema.type in value)) {
       throw Object.assign(new Error(`${name} is expected to be ${schema.type}.`), { status: 400, code: "validation_error" });
     }
-    if (schema.type === "select" && value.select?.name && /,/.test(value.select.name)) {
-      throw Object.assign(new Error("Select option names cannot contain commas."), { status: 400, code: "validation_error" });
+    const chosen =
+      schema.type === "select" ? (value.select ? [value.select] : []) : schema.type === "multi_select" ? value.multi_select : [];
+    for (const option of chosen) {
+      if (/,/.test(option.name ?? "")) throw mockError(400, "validation_error", "Select option names cannot contain commas.");
+      const options = (schema[schema.type].options ??= []);
+      if (!options.some((o) => o.name === option.name)) options.push(newOption(option));
+    }
+    if (schema.type === "status" && value.status?.name && !(schema.status.options ?? []).some((o) => o.name === value.status.name)) {
+      throw mockError(400, "validation_error", `Invalid status option "${value.status.name}" for ${name}.`);
     }
     if (schema.type === "files") {
       for (const f of value.files) if (f.type === "file_upload") useUpload(f.file_upload.id, `property ${name}`);

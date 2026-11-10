@@ -1,5 +1,6 @@
+import type { CategoryList } from "@pinpoint-feedback/core";
 import { createContext, useContext, useMemo, useState } from "react";
-import type { FeedbackController, FeedbackProviderProps } from "./types";
+import type { DefaultCategoryList, FeedbackController, FeedbackProviderProps } from "./types";
 import { Widget } from "./Widget";
 
 const FeedbackContext = createContext<FeedbackController | null>(null);
@@ -13,7 +14,10 @@ const inactive: FeedbackController = {
 };
 
 /** Renders `children` plus the feedback widget, and exposes the widget through {@link useFeedback}. */
-export function FeedbackProvider({ children, ...props }: FeedbackProviderProps) {
+export function FeedbackProvider<const C extends CategoryList = DefaultCategoryList>({
+  children,
+  ...props
+}: FeedbackProviderProps<C>) {
   const [controller, setController] = useState<FeedbackController>(inactive);
   const value = useMemo(() => controller, [controller]);
   return (

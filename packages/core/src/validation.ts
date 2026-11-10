@@ -1,7 +1,7 @@
+import { CATEGORY_ID_PATTERN, DEFAULT_CATEGORIES } from "./categories";
 import { isUuid } from "./ids";
 import { LIMITS } from "./limits";
 import {
-  FEEDBACK_CATEGORIES,
   FEEDBACK_PRIORITIES,
   type Annotation,
   type BrowserMetadata,
@@ -205,16 +205,34 @@ function captureSummary(c: Ctx, v: unknown): CaptureSummary | undefined {
  * Validates and normalises an untrusted submission payload.
  * Used by the server handler; also usable client-side before sending.
  */
-export function validateSubmission(input: unknown): ValidationResult<FeedbackSubmission> {
+export interface ValidateSubmissionOptions {
+  /** Accepted category ids. Defaults to the built-in categories. */
+  categories?: readonly string[];
+}
+
+const DEFAULT_CATEGORY_IDS: readonly string[] = DEFAULT_CATEGORIES.map((c) => c.id);
+
+export function validateSubmission(
+  input: unknown,
+  options: ValidateSubmissionOptions = {},
+): ValidationResult<FeedbackSubmission> {
   const c = new Ctx();
+  const categoryIds = options.categories ?? DEFAULT_CATEGORY_IDS;
   if (!isObj(input)) return { ok: false, issues: [{ path: "", message: "payload must be an object" }] };
 
   if (!isUuid(input.submissionId)) c.fail("submissionId", "must be a UUID");
   const title = str(c, input.title, "title", LIMITS.titleMax, { required: true });
   const description = str(c, input.description, "description", LIMITS.descriptionMax) ?? "";
-  const category = FEEDBACK_CATEGORIES.includes(input.category as never)
-    ? (input.category as FeedbackSubmission["category"])
-    : c.fail("category", `must be one of ${FEEDBACK_CATEGORIES.join(", ")}`);
+  const category =
+    typeof input.category === "string" && CATEGORY_ID_PATTERN.test(input.category) && categoryIds.includes(input.category)
+      ? input.category
+      : c.fail(
+          "category",
+          `must be one of ${categoryIds.join(", ")}` +
+            (typeof input.category === "string" && CATEGORY_ID_PATTERN.test(input.category)
+              ? ` (got "${input.category}"; configure the same categories on the server handler)`
+              : ""),
+        );
   const priority = FEEDBACK_PRIORITIES.includes(input.priority as never)
     ? (input.priority as FeedbackSubmission["priority"])
     : c.fail("priority", `must be one of ${FEEDBACK_PRIORITIES.join(", ")}`);

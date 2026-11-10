@@ -23,6 +23,10 @@ async function mockPages(request: APIRequestContext): Promise<MockPage[]> {
   return (await (await request.get(`${MOCK}/__mock/pages`)).json()).pages;
 }
 
+async function mockSchema(request: APIRequestContext): Promise<Record<string, any>> {
+  return (await (await request.get(`${MOCK}/__mock/schema`)).json()).properties;
+}
+
 async function mockUploads(request: APIRequestContext): Promise<MockUpload[]> {
   return (await (await request.get(`${MOCK}/__mock/uploads`)).json()).uploads;
 }
@@ -88,6 +92,17 @@ async function annotate(page: Page, dialog: Locator) {
   await drag(page, at(0.5, 0.3), at(0.75, 0.6));
 }
 
+test("offers the categories from feedback.config.ts", async ({ page }) => {
+  const dialog = await openWidget(page);
+  const radios = dialog.locator("fieldset", { hasText: "Category" }).getByRole("radio");
+  await expect(radios).toHaveCount(4);
+  for (const name of ["Bug", "Performance", "Accessibility", "Feature request"]) {
+    await expect(dialog.getByRole("radio", { name, exact: true })).toHaveCount(1);
+  }
+  await expect(dialog.getByRole("radio", { name: "Bug", exact: true })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "Design", exact: true })).toHaveCount(0);
+});
+
 async function fillForm(dialog: Locator, values: { title: string; description: string; category: string; priority: string }) {
   await dialog.getByRole("textbox", { name: /^Title/ }).fill(values.title);
   await dialog.getByRole("textbox", { name: /^Description/ }).fill(values.description);
@@ -102,13 +117,13 @@ test.beforeEach(async ({ request, page }) => {
   await useDistinctClientIp(page);
 });
 
-test("captures, annotates and files feedback in Notion", async ({ page, request }) => {
+test("captures, annotates and files feedback in Notion", async ({ page, request, baseURL }) => {
   const dialog = await openWidget(page);
   await annotate(page, dialog);
   await fillForm(dialog, {
     title: "Pricing cards overlap on tablet",
     description: "The Team plan card overlaps the Scale card.\n\nSeen at 1280px wide.",
-    category: "Design",
+    category: "Performance",
     priority: "High",
   });
   await dialog.getByRole("textbox", { name: /^Name/ }).fill("Ada Lovelace");
@@ -131,7 +146,7 @@ test("captures, annotates and files feedback in Notion", async ({ page, request 
   expect(created.id).toBe(result.pageId);
   expect(created.plain).toMatchObject({
     Title: "Pricing cards overlap on tablet",
-    Category: "Design",
+    Category: "Performance",
     Priority: "High",
     Status: "New",
     "Reporter Name": "Ada Lovelace",
@@ -140,7 +155,9 @@ test("captures, annotates and files feedback in Notion", async ({ page, request 
     "Submission ID": result.submissionId,
   });
   expect(created.plain.Description).toContain("The Team plan card overlaps the Scale card.");
-  expect(created.plain["Website URL"]).toMatch(/^http:\/\/127\.0\.0\.1:3100\/?/);
+  const categoryOptions = (await mockSchema(request)).Category.select.options as Array<{ name: string; color?: string }>;
+  expect(categoryOptions).toContainEqual(expect.objectContaining({ name: "Performance", color: "orange" }));
+  expect(String(created.plain["Website URL"]).startsWith(baseURL!)).toBe(true);
   expect(created.plain.Browser).toMatch(/Chrom/);
   expect(created.plain.Viewport).toMatch(/^1280×800 @\d/);
   expect(created.plain.Created).toEqual(expect.any(String));
@@ -223,4 +240,47 @@ test("rejects an invalid payload without touching Notion", async ({ request }) =
   expect(res.status()).toBe(400);
   expect((await res.json()).error.code).toBe("validation");
   expect(await mockPages(request)).toHaveLength(0);
+});
+
+test("rejects a category that is not configured on the server", async ({ request, baseURL }) => {
+  const submission = (category: string) => ({
+    submissionId: crypto.randomUUID(),
+    title: "Category check",
+    description: "",
+    category,
+    priority: "medium",
+    metadata: {
+      url: `${baseURL}/`,
+      pageTitle: "Northwind Analytics",
+      userAgent: "playwright",
+      browser: { name: "Playwright" },
+      os: { name: "Test" },
+      viewport: { width: 1280, height: 800 },
+      screen: { width: 1280, height: 800 },
+      devicePixelRatio: 1,
+    },
+    annotations: [],
+    createdAt: new Date().toISOString(),
+    website: "",
+  });
+  const headers = { "x-forwarded-for": `10.1.0.${++ipCounter}` };
+
+  const rejected = await request.post("/api/feedback", {
+    headers,
+    multipart: { payload: JSON.stringify(submission("design")) },
+  });
+  expect(rejected.status()).toBe(400);
+  const body = await rejected.json();
+  expect(body.error.code).toBe("validation");
+  expect(body.error.details.issues).toEqual([expect.objectContaining({ path: "category" })]);
+  expect(await mockPages(request)).toHaveLength(0);
+
+  const accepted = await request.post("/api/feedback", {
+    headers,
+    multipart: { payload: JSON.stringify(submission("a11y")) },
+  });
+  expect(accepted.status()).toBe(201);
+  const pages = await mockPages(request);
+  expect(pages).toHaveLength(1);
+  expect(pages[0]!.plain.Category).toBe("Accessibility");
 });

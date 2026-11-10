@@ -252,7 +252,10 @@ class Client implements FeedbackClient {
   private precheck(submission: FeedbackSubmission): SubmissionResult | undefined {
     const id = submission.submissionId;
     if (this.options.validate !== false) {
-      const v = validateSubmission(submission);
+      // Category membership depends on the server's configuration; only its format is checked here.
+      const v = validateSubmission(submission, {
+        categories: typeof submission.category === "string" ? [submission.category] : [],
+      });
       if (!v.ok) {
         const first = v.issues[0];
         const message = first ? `${first.path || "payload"} ${first.message}` : "Invalid submission";

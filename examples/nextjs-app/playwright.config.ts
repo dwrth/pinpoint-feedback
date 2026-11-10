@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const APP_PORT = 3100;
+const APP_PORT = Number(process.env.E2E_APP_PORT) || 3100;
 const MOCK_PORT = 3999;
 const DATABASE_ID = "0123456789abcdef0123456789abcdef";
 const CI = Boolean(process.env.CI);

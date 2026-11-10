@@ -2,7 +2,6 @@ import {
   createId,
   LIMITS,
   type BrowserMetadata,
-  type FeedbackCategory,
   type FeedbackPriority,
 } from "@pinpoint-feedback/core";
 
@@ -15,7 +14,8 @@ export interface Draft {
   metadata: BrowserMetadata;
   title: string;
   description: string;
-  category: FeedbackCategory;
+  /** Category id. */
+  category: string;
   priority: FeedbackPriority;
   name: string;
   email: string;
@@ -26,14 +26,6 @@ export interface Draft {
 export type DraftField = "title" | "description" | "name" | "email";
 export type FieldErrors = Partial<Record<DraftField, string>>;
 
-export const CATEGORY_LABELS: Record<FeedbackCategory, string> = {
-  bug: "Bug",
-  design: "Design",
-  content: "Content",
-  feature: "Feature request",
-  other: "Other",
-};
-
 export const PRIORITY_LABELS: Record<FeedbackPriority, string> = {
   low: "Low",
   medium: "Medium",
@@ -42,7 +34,7 @@ export const PRIORITY_LABELS: Record<FeedbackPriority, string> = {
 };
 
 export function createDraft(init: {
-  category: FeedbackCategory;
+  category: string;
   priority: FeedbackPriority;
   metadata: BrowserMetadata;
 }): Draft {

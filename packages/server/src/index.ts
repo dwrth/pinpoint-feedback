@@ -11,13 +11,14 @@ export {
   STATUS_OPTIONS,
   PRIORITY_OPTIONS,
   CATEGORY_OPTIONS,
+  categoryOptions,
 } from "./notion/schema";
 export type { NotionPropertyNames, PropertyField, ResolvedSchema, ResolvedProperty } from "./notion/schema";
 export { NotionRequestQueue, toNotionBackendError, withNotionRetry } from "./notion/reliability";
 export type { NotionRetryOptions, NotionThrottleOptions } from "./notion/reliability";
 export { richText, chunkText, truncate, NOTION_TEXT_MAX, NOTION_RICH_TEXT_ITEMS_MAX } from "./notion/rich-text";
 export type { RichTextItem } from "./notion/rich-text";
-export { buildChildren, buildProperties, CATEGORY_LABELS, PRIORITY_LABELS } from "./notion/page";
+export { buildChildren, buildProperties, CATEGORY_LABELS, DEFAULT_CATEGORY_EMOJI, PRIORITY_LABELS } from "./notion/page";
 export { resolveNotionConfigFromEnv, normalizeNotionId } from "./env";
 export type { NotionEnvConfig } from "./env";
 export { NotionBackendError, PinpointConfigError, PinpointServerError } from "./errors";

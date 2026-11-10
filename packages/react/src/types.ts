@@ -1,6 +1,8 @@
 import type {
   BrowserMetadata,
-  FeedbackCategory,
+  CategoryId,
+  CategoryList,
+  DEFAULT_CATEGORIES,
   FeedbackClient,
   FeedbackPriority,
   Reporter,
@@ -17,7 +19,9 @@ export type FeedbackWidgetError =
   | { type: "capture"; error: unknown }
   | { type: "submit"; error: SubmissionFailure["error"] };
 
-export interface FeedbackWidgetProps {
+export type DefaultCategoryList = typeof DEFAULT_CATEGORIES;
+
+export interface FeedbackWidgetProps<C extends CategoryList = DefaultCategoryList> {
   /** URL of the server handler. Default "/api/feedback". */
   endpoint?: string;
   position?: FeedbackWidgetPosition;
@@ -33,9 +37,14 @@ export interface FeedbackWidgetProps {
   /** Keyboard shortcut toggling the widget, e.g. "mod+shift+f" (mod = ⌘ on Apple, Ctrl elsewhere). */
   hotkey?: string | false;
   zIndex?: number;
-  /** Categories offered in the form, in order. Default: all. */
-  categories?: readonly FeedbackCategory[];
-  defaultCategory?: FeedbackCategory;
+  /**
+   * Categories offered in the form, in order: built-in ids (`"bug"`), `{ id, label }` definitions,
+   * or a list from `defineCategories()`. Must match the list given to the server handler.
+   * Default: the built-in categories.
+   */
+  categories?: C;
+  /** Id of the preselected category. Default: the first category. */
+  defaultCategory?: NoInfer<CategoryId<C>>;
   defaultPriority?: FeedbackPriority;
   capturer?: ScreenshotCapturer;
   client?: FeedbackClient;
@@ -46,7 +55,7 @@ export interface FeedbackWidgetProps {
   hidden?: boolean;
 }
 
-export interface FeedbackProviderProps extends FeedbackWidgetProps {
+export interface FeedbackProviderProps<C extends CategoryList = DefaultCategoryList> extends FeedbackWidgetProps<C> {
   children?: ReactNode;
 }
 

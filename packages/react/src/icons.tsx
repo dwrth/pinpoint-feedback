@@ -88,6 +88,7 @@ export const MonitorIcon = icon(
     <path d="M8 21h8M12 17v4" />
   </>,
 );
+export const ChevronDownIcon = icon(<path d="m6 9 6 6 6-6" />);
 export const CheckIcon = icon(<path d="M20 6 9 17l-5-5" />);
 export const AlertIcon = icon(
   <>

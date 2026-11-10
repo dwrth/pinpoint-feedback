@@ -17,7 +17,7 @@ Browser                         Your server (Next.js route)            Notion
 - **Floating feedback button** for any page, with an optional keyboard shortcut. It renders in an isolated Shadow DOM, so your page's styles don't leak in and its styles don't leak out.
 - **Screenshot of the current viewport**, rendered from the DOM. Nothing to install and no permission prompt. If that isn't possible, it can fall back to the browser's screen-capture prompt.
 - **Annotation editor** with pin markers (numbered, with optional notes), freehand, arrows, rectangles and text. You can pick colors and stroke widths, use undo/redo, zoom, pan, and reset to the original screenshot. Annotations are stored as vectors in screenshot pixel space.
-- **Structured reports**: title, description, category (bug, design, content, feature, other), priority (low to critical) and optional reporter name/email. Page URL, title, browser, OS, viewport, screen size, device pixel ratio, language and timezone are collected automatically.
+- **Structured reports**: title, description, category (bug, design, content, feature, other, or [your own](#custom-categories)), priority (low to critical) and optional reporter name/email. Page URL, title, browser, OS, viewport, screen size, device pixel ratio, language and timezone are collected automatically.
 - **Straight to Notion**: one database row per report, with properties for filtering and both images attached as Notion file uploads.
 - **Reliable**: every report gets a submission ID, which makes retries idempotent. A client-side outbox in IndexedDB keeps the report if the tab closes mid-send, and failed sends are retried automatically. The widget shows success only after Notion has confirmed the page exists.
 - **Secure by default**: the Notion token lives only on the server, payloads are validated and capped, requests are rate-limited, a honeypot catches simple bots, and uploads are checked for allowed type, magic bytes and size.
@@ -128,8 +128,8 @@ These props apply to `FeedbackProvider` and `FeedbackWidget`, from both `pinpoin
 | `buttonLabel` | `string` | `"Feedback"` | Text on the floating button. |
 | `hotkey` | `string \| false` | `false` | Shortcut that toggles the widget, e.g. `"mod+shift+f"`. `mod` is ⌘ on Apple and Ctrl elsewhere. |
 | `zIndex` | `number` | `2147483000` | Stacking order of the widget. |
-| `categories` | `FeedbackCategory[]` | all | Categories offered in the form, in this order. |
-| `defaultCategory` / `defaultPriority` | `FeedbackCategory` / `FeedbackPriority` | first category / `"medium"` | Initial form values. |
+| `categories` | `CategoryList`: built-in ids and/or `{ id, label, color?, emoji? }` | the five built-ins | Categories offered in the form, in this order. Must be the same list as the handler's `categories`; see [Custom categories](#custom-categories). |
+| `defaultCategory` / `defaultPriority` | an id from `categories` / `FeedbackPriority` | first category / `"medium"` | Initial form values. `defaultCategory` is type-checked against `categories`. |
 | `capturer` | `ScreenshotCapturer` | DOM capturer | Custom screenshot implementation. |
 | `client` | `FeedbackClient` | HTTP client + IndexedDB outbox | Custom submission client. |
 | `metadata` | `() => BrowserMetadata` | built-in collector | Override the collected browser metadata. |
@@ -138,6 +138,68 @@ These props apply to `FeedbackProvider` and `FeedbackWidget`, from both `pinpoin
 | `hidden` | `boolean` | `false` | Hide the floating button. You can still open the widget with `useFeedback().open()` or the hotkey. |
 
 `useFeedback()` returns `{ open(), close(), isOpen, pendingCount, retryPending() }`.
+
+### Custom categories
+
+The form offers five built-in categories: `bug`, `design`, `content`, `feature` and `other`. To use your own, declare the list once in a shared file and pass it to both the widget and the route handler, because the server only accepts the categories it was configured with.
+
+**`feedback.config.ts`**
+
+```ts
+import { defineCategories } from "pinpoint-feedback";
+
+export const categories = defineCategories([
+  "bug", // built-in categories can be listed by id
+  { id: "perf", label: "Performance", color: "orange", emoji: "⚡" },
+  { id: "a11y", label: "Accessibility", color: "blue" },
+  "feature",
+]);
+```
+
+Import `defineCategories` from the root `"pinpoint-feedback"` entry, not from `pinpoint-feedback/nextjs`. The `nextjs` and `react` entries are `"use client"` modules, so their exports become client references that can't be called in Server Components or route handlers. The root entry has no client boundary and works in both.
+
+**`app/layout.tsx`**
+
+```tsx
+import { FeedbackProvider } from "pinpoint-feedback/nextjs";
+import { categories } from "../feedback.config";
+
+// ...
+<FeedbackProvider position="bottom-right" theme="light" categories={categories} defaultCategory="bug" />
+```
+
+**`app/api/feedback/route.ts`**
+
+```ts
+import { createFeedbackHandler } from "pinpoint-feedback/nextjs/server";
+import { categories } from "../../../feedback.config";
+
+export const runtime = "nodejs";
+
+export const POST = createFeedbackHandler({ categories });
+```
+
+Each entry is either a built-in id or a definition:
+
+| Field | Description |
+| --- | --- |
+| `id` | Sent with the report and checked by the server. Letters, digits, `-` and `_`, up to 50 characters, unique within the list. **Keep ids stable**: queued reports that are retried later carry the id they were created with, and the server rejects ids it no longer knows. |
+| `label` | Shown in the widget and stored in Notion as the `Category` select option name. 1–100 characters and no commas, since Notion select option names can't contain them. Renaming a label creates a new option in Notion; existing pages keep the old one. |
+| `color` | Optional Notion select color (`default`, `gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`). Used when the option is created, and as a small dot next to the label in the widget. |
+| `emoji` | Optional icon for the summary callout on the Notion page. |
+
+**Type safety.** `FeedbackProvider` and `FeedbackWidget` infer the ids of the list you pass, whether it comes from `defineCategories` or is written inline, so `defaultCategory` must be one of them:
+
+```tsx
+<FeedbackProvider categories={[{ id: "perf", label: "Performance" }, "bug"]} defaultCategory="perf" /> // ok
+<FeedbackProvider categories={[{ id: "perf", label: "Performance" }, "bug"]} defaultCategory="design" /> // type error
+```
+
+`CategoryId<typeof categories>` gives you the id union for your own code. `defineCategories` also validates the list when the module loads, so a bad config fails fast during `next build`.
+
+**Notion.** With `autoSetupSchema` on, options for your categories are added to the `Category` select on first use, with their colors. Existing options are left alone.
+
+**In the widget.** Up to six categories are shown as buttons; longer lists use a dropdown. With a single category the field is hidden and that category is always sent. If the `categories` prop is invalid at runtime (for example a duplicate id), the widget logs an error to the console and falls back to the built-in categories instead of breaking your page. If `defaultCategory` isn't in the list, the first category is preselected.
 
 ### Server handler options
 
@@ -154,6 +216,7 @@ You can pass these to `createFeedbackHandler()` from `pinpoint-feedback/nextjs/s
 | `notion.descriptionPropertyMaxChars` | `number` | `2000` | Characters of the description kept in the `Description` property. The page body always contains the full text. |
 | `notion.timeoutMs` / `retry` / `throttle` | – | 30 s / 3 retries / 3 req/s | Notion request timeout, retries with backoff, and client-side throttling to stay under Notion's rate limit. |
 | `backend` | `FeedbackBackend` | Notion backend | Replace the persistence layer, for example in tests. |
+| `categories` | `CategoryList` | the five built-ins | Accepted categories; submissions with any other category get a `400`. Use the same list as the widget. Missing options are added to the Notion `Category` select. |
 | `projectId` | `string` | `PINPOINT_PROJECT_ID` | Default project for reports that don't send one. |
 | `allowedOrigins` | `string[] \| "*"` | same-origin only | Origins that may submit. Also enables CORS responses for them. |
 | `rateLimit` | `{ max, windowMs } \| false` | 10 per 10 min per IP | In-memory, per-process rate limiting. |
@@ -174,7 +237,7 @@ With `autoSetupSchema` on, any of these that don't exist yet are created. You ca
 | `Title` (the title column) | Title | Report title | `title` |
 | `Description` | Text | First 2000 characters of the description | `description` |
 | `Status` | Select (or Status) | `New`, `In progress`, `Resolved`, `Won't fix` | `status` |
-| `Category` | Select | `Bug`, `Design`, `Content`, `Feature request`, `Other` | `category` |
+| `Category` | Select | Category label: `Bug`, `Design`, `Content`, `Feature request`, `Other`, or your [custom categories](#custom-categories) | `category` |
 | `Priority` | Select | `Low`, `Medium`, `High`, `Critical` | `priority` |
 | `Website URL` | URL | Where the report was made | `websiteUrl` |
 | `Page Title` | Text | `document.title` of that page | `pageTitle` |

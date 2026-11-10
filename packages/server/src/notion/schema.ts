@@ -1,3 +1,4 @@
+import { DEFAULT_CATEGORIES, type CategoryColor, type CategoryDefinition } from "@pinpoint-feedback/core";
 import type { NotionClientLike, UpdateDataSourceArgs } from "./client";
 
 /** Names of the Notion database properties written by the backend. */
@@ -46,8 +47,7 @@ export type ValueKind = "title" | "text" | "choice" | "url" | "email" | "date" |
 
 type PropertyConfig = NonNullable<UpdateDataSourceArgs["properties"]>[string];
 
-type Color = "default" | "gray" | "brown" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" | "red";
-const options = (list: Array<[string, Color]>) => list.map(([name, color]) => ({ name, color }));
+const options = (list: Array<[string, CategoryColor]>) => list.map(([name, color]) => ({ name, color }));
 
 export const STATUS_OPTIONS = options([
   ["New", "blue"],
@@ -61,13 +61,13 @@ export const PRIORITY_OPTIONS = options([
   ["High", "orange"],
   ["Critical", "red"],
 ]);
-export const CATEGORY_OPTIONS = options([
-  ["Bug", "red"],
-  ["Design", "purple"],
-  ["Content", "yellow"],
-  ["Feature request", "green"],
-  ["Other", "gray"],
-]);
+
+export function categoryOptions(categories: readonly CategoryDefinition[]): Array<{ name: string; color: CategoryColor }> {
+  return options(categories.map((c) => [c.label, c.color ?? "default"]));
+}
+
+/** Category select options for the built-in categories. */
+export const CATEGORY_OPTIONS = categoryOptions(DEFAULT_CATEGORIES);
 
 const ACCEPTS: Record<ValueKind, readonly string[]> = {
   title: ["title"],
@@ -126,9 +126,14 @@ export interface ResolvedSchema {
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null;
 
+interface RawOption {
+  id?: string;
+  name: string;
+}
+
 interface RawProperty {
   type: string;
-  options?: string[];
+  options?: RawOption[];
 }
 
 function readProperties(value: unknown): Record<string, RawProperty> {
@@ -138,12 +143,16 @@ function readProperties(value: unknown): Record<string, RawProperty> {
     if (!isObj(prop) || typeof prop.type !== "string") continue;
     const cfg = prop[prop.type];
     const opts = isObj(cfg) && Array.isArray(cfg.options)
-      ? cfg.options.flatMap((o) => (isObj(o) && typeof o.name === "string" ? [o.name] : []))
+      ? cfg.options.flatMap((o): RawOption[] =>
+          isObj(o) && typeof o.name === "string" ? [{ name: o.name, ...(typeof o.id === "string" ? { id: o.id } : {}) }] : [],
+        )
       : undefined;
     out[name] = { type: prop.type, options: opts };
   }
   return out;
 }
+
+const SELECT_TYPES = ["select", "multi_select"];
 
 export interface SchemaLogger {
   info(...args: unknown[]): void;
@@ -183,26 +192,59 @@ export async function resolveSchema(args: {
   autoSetup: boolean;
   logger: SchemaLogger;
   call: <T>(fn: () => Promise<T>) => Promise<T>;
+  categories?: readonly CategoryDefinition[];
 }): Promise<ResolvedSchema> {
   const { client, databaseId, names, autoSetup, logger, call } = args;
+  const categories = args.categories ?? DEFAULT_CATEGORIES;
   const dataSourceId = await resolveDataSourceId(client, databaseId, call);
   const ds = await call(() => client.dataSources.retrieve({ data_source_id: dataSourceId }));
   let existing = readProperties(isObj(ds) ? ds.properties : undefined);
 
+  const specs: Record<Exclude<PropertyField, "title">, FieldSpec> = {
+    ...FIELD_SPECS,
+    category: { ...FIELD_SPECS.category, create: { select: { options: categoryOptions(categories) } } },
+  };
+  const wanted = Object.entries(specs) as Array<[Exclude<PropertyField, "title">, FieldSpec]>;
+
   const missing: Record<string, PropertyConfig> = {};
-  const wanted: Array<[Exclude<PropertyField, "title">, FieldSpec]> = Object.entries(FIELD_SPECS) as Array<
-    [Exclude<PropertyField, "title">, FieldSpec]
-  >;
   for (const [field, spec] of wanted) {
     const name = names[field];
     if (!existing[name] && !(name in missing)) missing[name] = spec.create;
   }
 
+  const categoryName = names.category;
+  const categoryProp = existing[categoryName];
+  const optionNames = new Set(categoryProp?.options?.map((o) => o.name));
+  const absentOptions = categoryOptions(categories).filter((o) => !optionNames.has(o.name));
+  let optionUpdate: { name: string; type: string; options: Array<RawOption & { color?: CategoryColor }> } | undefined;
+  if (categoryProp && absentOptions.length > 0) {
+    if (SELECT_TYPES.includes(categoryProp.type)) {
+      if (autoSetup) {
+        optionUpdate = {
+          name: categoryName,
+          type: categoryProp.type,
+          options: [...(categoryProp.options ?? []), ...absentOptions],
+        };
+      }
+    } else if (categoryProp.type === "status") {
+      logger.warn(
+        `[pinpoint] Notion property "${categoryName}" is a status property without the option(s) ${absentOptions
+          .map((o) => `"${o.name}"`)
+          .join(", ")}; feedback in those categories is saved without a category. Add the options in Notion or use a select property.`,
+      );
+    }
+  }
+
   const created: string[] = [];
   const missingNames = Object.keys(missing);
-  if (autoSetup && missingNames.length > 0) {
+  if (autoSetup && (missingNames.length > 0 || optionUpdate)) {
+    const changes: Record<string, PropertyConfig> = { ...missing };
+    if (optionUpdate) {
+      const { options: opts } = optionUpdate;
+      changes[optionUpdate.name] = optionUpdate.type === "multi_select" ? { multi_select: { options: opts } } : { select: { options: opts } };
+    }
     const updated = await call(() =>
-      client.dataSources.update({ data_source_id: dataSourceId, properties: missing } as UpdateDataSourceArgs),
+      client.dataSources.update({ data_source_id: dataSourceId, properties: changes } as UpdateDataSourceArgs),
     );
     const after = readProperties(isObj(updated) ? updated.properties : undefined);
     if (Object.keys(after).length > 0) existing = { ...existing, ...after };
@@ -210,11 +252,20 @@ export async function resolveSchema(args: {
       for (const name of missingNames) {
         const cfg = missing[name] as Obj;
         const type = Object.keys(cfg)[0] ?? "rich_text";
-        existing[name] = { type };
+        const opts = isObj(cfg[type]) ? (cfg[type] as Obj).options : undefined;
+        existing[name] = { type, options: Array.isArray(opts) ? (opts as RawOption[]).map(({ name: n }) => ({ name: n })) : undefined };
       }
+      if (optionUpdate) existing[optionUpdate.name] = { type: optionUpdate.type, options: optionUpdate.options };
     }
-    created.push(...missingNames);
-    logger.info(`[pinpoint] Added missing Notion properties: ${missingNames.join(", ")}`);
+    if (missingNames.length > 0) {
+      created.push(...missingNames);
+      logger.info(`[pinpoint] Added missing Notion properties: ${missingNames.join(", ")}`);
+    }
+    if (optionUpdate) {
+      logger.info(
+        `[pinpoint] Added missing options to Notion property "${optionUpdate.name}": ${absentOptions.map((o) => o.name).join(", ")}`,
+      );
+    }
   }
 
   const properties: Partial<Record<PropertyField, ResolvedProperty>> = {};
@@ -241,7 +292,7 @@ export async function resolveSchema(args: {
       skipped.push(field);
       continue;
     }
-    properties[field] = { name, type: prop.type, kind: spec.kind, options: prop.options };
+    properties[field] = { name, type: prop.type, kind: spec.kind, options: prop.options?.map((o) => o.name) };
   }
 
   if (!properties.submissionId) {

@@ -73,6 +73,14 @@ describe("createFeedbackHandler", () => {
     expect((await handler(request())).status).toBe(201);
   });
 
+  it("forwards the shared category list to the request handler", async () => {
+    vi.stubEnv("NOTION_API_KEY", "secret_x");
+    vi.stubEnv("NOTION_FEEDBACK_DATABASE_ID", DB_ID);
+    const categories = ["bug", { id: "perf", label: "Performance", color: "orange" }] as const;
+    await createFeedbackHandler({ logger: silent, categories })(request());
+    expect(mocks.createFeedbackRequestHandler.mock.calls[0]![0].categories).toBe(categories);
+  });
+
   it("creates the underlying handler once and reuses it", async () => {
     vi.stubEnv("NOTION_API_KEY", "secret_x");
     vi.stubEnv("NOTION_FEEDBACK_DATABASE_ID", DB_ID);

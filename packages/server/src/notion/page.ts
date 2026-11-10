@@ -1,15 +1,20 @@
-import type { Annotation, FeedbackCategory, FeedbackPriority, FeedbackSubmission } from "@pinpoint-feedback/core";
+import {
+  DEFAULT_CATEGORIES,
+  type Annotation,
+  type CategoryDefinition,
+  type FeedbackCategory,
+  type FeedbackPriority,
+  type FeedbackSubmission,
+} from "@pinpoint-feedback/core";
 import type { BlockRequest } from "./client";
 import { NOTION_TEXT_MAX, richText, truncate, type RichTextItem } from "./rich-text";
 import type { PropertyField, ResolvedProperty, ResolvedSchema } from "./schema";
 
-export const CATEGORY_LABELS: Record<FeedbackCategory, string> = {
-  bug: "Bug",
-  design: "Design",
-  content: "Content",
-  feature: "Feature request",
-  other: "Other",
-};
+/** Labels of the built-in categories. */
+export const CATEGORY_LABELS = Object.fromEntries(DEFAULT_CATEGORIES.map((c) => [c.id, c.label])) as Record<
+  FeedbackCategory,
+  string
+>;
 
 export const PRIORITY_LABELS: Record<FeedbackPriority, string> = {
   low: "Low",
@@ -18,13 +23,11 @@ export const PRIORITY_LABELS: Record<FeedbackPriority, string> = {
   critical: "Critical",
 };
 
-const CATEGORY_EMOJI: Record<FeedbackCategory, string> = {
-  bug: "🐞",
-  design: "🎨",
-  content: "📝",
-  feature: "💡",
-  other: "💬",
-};
+export const DEFAULT_CATEGORY_EMOJI = "💬";
+
+function categoryOf(s: FeedbackSubmission, categories: readonly CategoryDefinition[]): CategoryDefinition {
+  return categories.find((c) => c.id === s.category) ?? { id: s.category, label: s.category };
+}
 
 export interface UploadRefs {
   screenshot?: { id: string; filename: string };
@@ -35,6 +38,8 @@ export interface BuildPageOptions {
   statusDefault: string;
   descriptionPropertyMaxChars: number;
   projectId?: string;
+  /** Resolved category definitions. Default: the built-in categories. */
+  categories?: readonly CategoryDefinition[];
 }
 
 type PropertyValue = Record<string, unknown>;
@@ -109,7 +114,7 @@ export function buildProperties(
   set("description", s.description ? truncate(s.description, options.descriptionPropertyMaxChars) : undefined);
   set("status", options.statusDefault);
   set("priority", PRIORITY_LABELS[s.priority]);
-  set("category", CATEGORY_LABELS[s.category]);
+  set("category", categoryOf(s, options.categories ?? DEFAULT_CATEGORIES).label);
   set("websiteUrl", s.metadata.url);
   set("pageTitle", s.metadata.pageTitle);
   setFile("screenshot", uploads.screenshot);
@@ -195,18 +200,23 @@ function annotationBlocks(annotations: Annotation[]): BlockRequest[] {
   return blocks;
 }
 
-export function buildChildren(s: FeedbackSubmission, uploads: UploadRefs): BlockRequest[] {
+export function buildChildren(
+  s: FeedbackSubmission,
+  uploads: UploadRefs,
+  categories: readonly CategoryDefinition[] = DEFAULT_CATEGORIES,
+): BlockRequest[] {
   const m = s.metadata;
+  const category = categoryOf(s, categories);
   const blocks: BlockRequest[] = [];
   const reporter = s.reporter?.name || s.reporter?.email;
   const summary = [
-    `${CATEGORY_LABELS[s.category]} · ${PRIORITY_LABELS[s.priority]} priority`,
+    `${category.label} · ${PRIORITY_LABELS[s.priority]} priority`,
     reporter ? ` · reported by ${reporter}` : "",
   ].join("");
   blocks.push({
     object: "block",
     type: "callout",
-    callout: { rich_text: richText(summary), icon: { type: "emoji", emoji: CATEGORY_EMOJI[s.category] }, color: "gray_background" },
+    callout: { rich_text: richText(summary), icon: { type: "emoji", emoji: category.emoji ?? DEFAULT_CATEGORY_EMOJI }, color: "gray_background" },
   } as BlockRequest);
 
   blocks.push(heading("Description"), ...descriptionBlocks(s.description));

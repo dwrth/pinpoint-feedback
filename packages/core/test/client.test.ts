@@ -357,3 +357,27 @@ describe("createFeedbackClient.retryPending", () => {
     expect(await client.pending()).toEqual([]);
   });
 });
+
+describe("client precheck with custom categories", () => {
+  it("does not reject category ids unknown to the built-in list", async () => {
+    const { createFeedbackClient, MemoryOutbox } = await import("../src/client/index");
+    const { createId } = await import("../src/ids");
+    const submit = vi.fn(async (s: { submissionId: string }) => ({ ok: true as const, submissionId: s.submissionId, pageId: "p", duplicate: false }));
+    const client = createFeedbackClient({ endpoint: "/x", transport: { submit }, outbox: new MemoryOutbox(), fitImage: async (b: Blob) => ({ blob: b, downscaled: false, reencoded: false }) } as never);
+    const result = await client.submit(
+      {
+        submissionId: createId(),
+        title: "t",
+        description: "",
+        category: "perf",
+        priority: "low",
+        annotations: [],
+        createdAt: new Date().toISOString(),
+        metadata: { url: "https://a.test/", pageTitle: "", userAgent: "", browser: { name: "x" }, os: { name: "y" }, viewport: { width: 1, height: 1 }, screen: { width: 1, height: 1 }, devicePixelRatio: 1 },
+      },
+      {},
+    );
+    expect(result.ok).toBe(true);
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+});

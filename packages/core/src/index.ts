@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./categories";
 export * from "./interfaces";
 export * from "./limits";
 export * from "./ids";

@@ -113,6 +113,16 @@ interface FileUploader {
 
 `NotionFileUploader` uses Notion's File Upload API in single-part mode (`POST /v1/file_uploads`, then `POST /v1/file_uploads/{id}/send`). The returned `id` is attached to the page's files properties and image blocks, and Notion requires that to happen within an hour. Pass `uploader` in `NotionBackendOptions` to put images on your own storage, such as S3 or R2, and reference them as external files instead.
 
+## Categories
+
+Categories are configuration shared by the client and the server, so they live in `@pinpoint-feedback/core` (`packages/core/src/categories.ts`), which has no client boundary and no import-time DOM access:
+
+- `defineCategories(list)` validates a list eagerly and keeps its literal types; `resolveCategories(list)` expands built-in ids into `{ id, label, color?, emoji? }` and throws `CategoryConfigError` on invalid input.
+- The widget (`categories` prop) resolves the list, memoised on its JSON content, renders labels and color dots, and sends only the `id`. On invalid input it logs and falls back to `DEFAULT_CATEGORIES`. `FeedbackProvider`/`FeedbackWidget` are generic over the list (`<const C extends CategoryList>`), so `defaultCategory` is typed as `CategoryId<C>`.
+- The handler (`categories` option) passes the ids to `validateSubmission`, rejecting unknown ones with `400 validation`, and gives the definitions to the Notion backend. That backend adds missing select options (label + color) to `Category` and writes the label, not the id, to each page.
+
+In Next.js the list is declared in a plain module (e.g. `feedback.config.ts`) that imports from the root `pinpoint-feedback` entry. A Server Component layout passes the plain array as a prop across the client boundary, and the route handler imports the same module.
+
 ## Server handler
 
 `createFeedbackRequestHandler(options)` returns a `(request: Request) => Promise<Response>` function and holds per-process state: the rate limiter, a cache of completed submission IDs, and in-flight deduplication. Create it **once** per process, at module scope, and reuse it.

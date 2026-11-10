@@ -87,6 +87,16 @@
   --pp-success: #15803d;
   --pp-success-bg: #f0fdf4;
   --pp-backdrop: rgb(9 9 11 / 0.4);
+  --pp-cat-default: #a1a1aa;
+  --pp-cat-gray: #71717a;
+  --pp-cat-brown: #a16a3f;
+  --pp-cat-orange: #f97316;
+  --pp-cat-yellow: #eab308;
+  --pp-cat-green: #22c55e;
+  --pp-cat-blue: #3b82f6;
+  --pp-cat-purple: #a855f7;
+  --pp-cat-pink: #ec4899;
+  --pp-cat-red: #ef4444;
   --pp-shadow-pop: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.08);
   --pp-shadow-float: 0 0 0 1px rgb(0 0 0 / 0.04), 0 8px 24px -4px rgb(0 0 0 / 0.16),
     0 24px 64px -12px rgb(0 0 0 / 0.24);
@@ -111,6 +121,16 @@
   --pp-success: #4ade80;
   --pp-success-bg: rgb(20 83 45 / 0.3);
   --pp-backdrop: rgb(0 0 0 / 0.6);
+  --pp-cat-default: #71717a;
+  --pp-cat-gray: #a1a1aa;
+  --pp-cat-brown: #c4916a;
+  --pp-cat-orange: #fb923c;
+  --pp-cat-yellow: #facc15;
+  --pp-cat-green: #4ade80;
+  --pp-cat-blue: #60a5fa;
+  --pp-cat-purple: #c084fc;
+  --pp-cat-pink: #f472b6;
+  --pp-cat-red: #f87171;
   --pp-shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.04), 0 4px 12px rgb(0 0 0 / 0.4);
   --pp-shadow-float: 0 0 0 1px rgb(255 255 255 / 0.06), 0 8px 24px -4px rgb(0 0 0 / 0.5),
     0 24px 64px -12px rgb(0 0 0 / 0.6);
