@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="440" viewBox="0 0 720 440">
+  <rect width="720" height="440" rx="20" fill="#ffffff"/>
+  <rect x="0" y="0" width="720" height="48" rx="20" fill="#eef2ff"/>
+  <circle cx="28" cy="24" r="7" fill="#f87171"/><circle cx="50" cy="24" r="7" fill="#fbbf24"/><circle cx="72" cy="24" r="7" fill="#34d399"/>
+  <rect x="32" y="80" width="200" height="90" rx="12" fill="#f5f3ff"/>
+  <rect x="260" y="80" width="200" height="90" rx="12" fill="#ecfeff"/>
+  <rect x="488" y="80" width="200" height="90" rx="12" fill="#fef9c3"/>
+  <text x="52" y="118" font-family="system-ui, sans-serif" font-size="14" fill="#6b7280">Active users</text>
+  <text x="52" y="150" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#111827">48,210</text>
+  <text x="280" y="118" font-family="system-ui, sans-serif" font-size="14" fill="#6b7280">Conversion</text>
+  <text x="280" y="150" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#111827">3.8%</text>
+  <text x="508" y="118" font-family="system-ui, sans-serif" font-size="14" fill="#6b7280">Revenue</text>
+  <text x="508" y="150" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="#111827">$92.4k</text>
+  <rect x="32" y="196" width="656" height="212" rx="12" fill="#f9fafb"/>
+  <polyline fill="none" stroke="#6366f1" stroke-width="4" stroke-linejoin="round" points="56,380 140,330 220,350 300,280 380,300 460,230 540,250 620,200 664,215"/>
+  <polyline fill="none" stroke="#22d3ee" stroke-width="3" stroke-dasharray="8 6" points="56,390 140,370 220,372 300,340 380,330 460,310 540,300 620,270 664,268"/>
+</svg>
