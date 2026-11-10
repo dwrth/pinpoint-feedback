@@ -10,3 +10,8 @@ playwright-report
 packages/pinpoint-feedback/README.md
 packages/pinpoint-feedback/LICENSE
 next-env.d.ts
+vitest-results.json
+e2e-results.json
+ci-report.md
+changed-files.txt
+baseline/

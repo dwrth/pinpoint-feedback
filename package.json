@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "e2e": "npm run e2e -w pinpoint-feedback-example-nextjs"
+    "e2e": "npm run e2e -w pinpoint-feedback-example-nextjs",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",
@@ -24,6 +25,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "@vitest/coverage-v8": "^5.1.0",
     "happy-dom": "^21.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

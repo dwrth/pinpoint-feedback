@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - id: unit
+        run: npm run test:coverage -- --reporter=default --reporter=json --outputFile.json=vitest-results.json
+      - id: playwright
+        if: ${{ !cancelled() && steps.unit.outcome != 'skipped' }}
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        if: ${{ !cancelled() && steps.unit.outcome != 'skipped' }}
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - if: ${{ !cancelled() && steps.unit.outcome != 'skipped' }}
+        run: npx playwright install --with-deps chromium
+      - if: ${{ !cancelled() && steps.unit.outcome != 'skipped' }}
+        working-directory: examples/nextjs-app
+        env:
+          CI: "true"
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/e2e-results.json
+          PLAYWRIGHT_HTML_OPEN: never
+        run: npx playwright test --reporter=github,json,html
+      - name: Resolve baseline coverage from main
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --workflow ci.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -n "$run_id" ]; then
+            gh run download "$run_id" --name coverage-summary --dir baseline
+          fi
+      - name: List changed files
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename' > changed-files.txt
+      - name: Build report
+        if: always()
+        run: |
+          node scripts/ci-report.mjs \
+            --results=vitest-results.json \
+            --browser=e2e-results.json \
+            --coverage=coverage/coverage-summary.json \
+            --baseline=baseline/coverage-summary.json \
+            --changed=changed-files.txt \
+            --out=ci-report.md
+          cat ci-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Post sticky PR comment
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- pinpoint-ci-report -->';
+            const body = fs.readFileSync('ci-report.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+              const existing = comments.find((c) => c.body?.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              }
+            } catch (error) {
+              core.warning(`Could not post CI report comment: ${error.message}`);
+            }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: |
+            coverage/lcov.info
+            coverage/coverage-summary.json
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: coverage-summary
+          path: coverage/coverage-summary.json
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            examples/nextjs-app/test-results
+            examples/nextjs-app/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

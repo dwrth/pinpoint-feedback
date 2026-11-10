@@ -14,6 +14,21 @@ const alias = {
 export default defineConfig({
   resolve: { alias },
   test: {
+    coverage: {
+      provider: "v8",
+      include: ["packages/*/src/**/*.{ts,tsx}"],
+      exclude: [
+        "packages/*/src/**/*.d.ts",
+        "packages/*/src/index.ts",
+        "packages/core/src/types.ts",
+        "packages/core/src/interfaces.ts",
+        "packages/core/src/locales/**",
+        "packages/react/src/types.ts",
+      ],
+      reporter: ["text-summary", "lcov", "json-summary"],
+      reportsDirectory: "coverage",
+      thresholds: { statements: 80, branches: 70, functions: 80, lines: 80 },
+    },
     projects: [
       {
         resolve: { alias },
@@ -26,6 +41,9 @@ export default defineConfig({
       {
         resolve: { alias },
         test: { name: "react", root: r("./packages/react"), environment: "happy-dom", include: ["test/**/*.test.{ts,tsx}"] },
+      },
+      {
+        test: { name: "scripts", root: r("./scripts"), environment: "node", include: ["**/*.test.mjs"] },
       },
       {
         resolve: { alias },
