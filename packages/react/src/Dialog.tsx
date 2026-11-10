@@ -192,7 +192,7 @@ export default function Dialog(props: DialogProps) {
   const validationErrors = validateDraft(draft, { reporterFields });
   const visibleErrors: FieldErrors = { ...serverErrors };
   for (const field of Object.keys(validationErrors) as DraftField[]) {
-    if (submitAttempted || touched[field]) visibleErrors[field] = validationErrors[field];
+    if (submitAttempted || (touched[field] && draft[field].trim() !== "")) visibleErrors[field] = validationErrors[field];
   }
 
   const submitting = status.kind === "submitting";
