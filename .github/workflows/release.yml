@@ -54,8 +54,9 @@ jobs:
       - run: npm test
       - name: Publish to npm (trusted publishing via GitHub OIDC)
         run: |
-          for name in @pinpoint-feedback/core @pinpoint-feedback/server @pinpoint-feedback/react @pinpoint-feedback/nextjs pinpoint-feedback; do
-            version=$(npm pkg get version -w "$name" | node -e "process.stdin.on('data', d => console.log(Object.values(JSON.parse(d))[0]))")
+          for dir in core server react nextjs pinpoint-feedback; do
+            name=$(node -p "require('./packages/$dir/package.json').name")
+            version=$(node -p "require('./packages/$dir/package.json').version")
             if npm view "$name@$version" version > /dev/null 2>&1; then
               echo "$name@$version is already on npm, skipping"
               continue
