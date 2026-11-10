@@ -2,7 +2,7 @@ import { APIErrorCode } from "@notionhq/client";
 import type { FeedbackBackend, FeedbackRecordInput } from "@pinpoint-feedback/core";
 import { describe, expect, it, vi } from "vitest";
 import { createFeedbackRequestHandler, type FeedbackHandlerOptions } from "../src/index";
-import { FakeNotion, JPEG_BYTES, makeBackend, makeRequest, makeSubmission, notionError, silentLogger } from "./helpers";
+import { FakeNotion, JPEG_BYTES, makeBackend, makeRequest, makeSubmission, notionError, pngBlob, silentLogger } from "./helpers";
 
 function memoryBackend() {
   const inputs: FeedbackRecordInput[] = [];
@@ -111,11 +111,69 @@ describe("createFeedbackRequestHandler", () => {
     expect((await res.json()).error.code).toBe("payload_too_large");
   });
 
-  it("rejects files above maxFileBytes", async () => {
+  it("rejects files above maxFileBytes and advertises the limit and field", async () => {
     const { h } = handler({ maxFileBytes: 32 });
     const big = new Blob([new Uint8Array([...Array.from(pngHeader()), ...new Uint8Array(64)])], { type: "image/png" });
     const res = await h(makeRequest(makeSubmission(), { screenshot: big }));
     expect(res.status).toBe(413);
+    expect((await res.json()).error).toMatchObject({ code: "payload_too_large", details: { maxFileBytes: 32, field: "screenshot" } });
+
+    const annotated = await h(makeRequest(makeSubmission(), { screenshot: pngBlob(), annotatedScreenshot: big }));
+    expect(annotated.status).toBe(413);
+    expect((await annotated.json()).error.details).toEqual({ maxFileBytes: 32, field: "annotatedScreenshot" });
+  });
+
+  it("advertises maxFileBytes when the body size guard trips", async () => {
+    const { h } = handler({ maxFileBytes: 1024 });
+    const req = makeRequest(makeSubmission());
+    const big = new Request(req.url, { method: "POST", body: "x", headers: { "content-type": req.headers.get("content-type")!, "content-length": String(10 * 1024 * 1024) } });
+    const res = await h(big);
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.details).toEqual({ maxFileBytes: 1024 });
+
+    const huge = new Blob([new Uint8Array(600 * 1024)], { type: "image/png" });
+    const streamed = await h(makeRequest(makeSubmission(), { screenshot: huge }));
+    expect((await streamed.json()).error.details).toEqual({ maxFileBytes: 1024 });
+  });
+
+  it("accepts an Idempotency-Key equal to the submission ID, ignoring case", async () => {
+    const { h, inputs } = handler();
+    const submission = makeSubmission();
+    const res = await h(makeRequest(submission, undefined, { headers: { "idempotency-key": submission.submissionId.toUpperCase() } }));
+    expect(res.status).toBe(201);
+    const again = await h(makeRequest(submission, undefined, { headers: { "idempotency-key": submission.submissionId } }));
+    expect(await again.json()).toMatchObject({ ok: true, duplicate: true });
+    expect(inputs).toHaveLength(1);
+  });
+
+  it("rejects an Idempotency-Key that differs from the submission ID", async () => {
+    const { h, inputs } = handler();
+    const submission = makeSubmission();
+    const res = await h(makeRequest(submission, undefined, { headers: { "idempotency-key": makeSubmission().submissionId } }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.submissionId).toBe(submission.submissionId);
+    expect(body.error).toMatchObject({ code: "validation", retryable: false, details: { issues: [{ path: "submissionId" }] } });
+    expect(inputs).toHaveLength(0);
+  });
+
+  it("uses the client projectId when the server has none", async () => {
+    const { h, inputs } = handler();
+    await h(makeRequest(makeSubmission({ projectId: "client-project" })));
+    expect(inputs[0]!.submission.projectId).toBe("client-project");
+  });
+
+  it("logs each distinct ignored client projectId once", async () => {
+    const info = vi.fn();
+    const onSubmission = vi.fn();
+    const { h, inputs } = handler({ projectId: "server-project", onSubmission, logger: { ...silentLogger, info } });
+    for (const projectId of ["a", "a", "b", "server-project", undefined]) {
+      await h(makeRequest(makeSubmission(projectId === undefined ? {} : { projectId })));
+    }
+    expect(inputs.map((i) => i.submission.projectId)).toEqual(Array(5).fill("server-project"));
+    expect(onSubmission.mock.calls.map(([s]) => s.projectId)).toEqual(Array(5).fill("server-project"));
+    expect(info).toHaveBeenCalledTimes(2);
+    expect(info.mock.calls.map(([m]) => m)).toEqual([expect.stringContaining('"a"'), expect.stringContaining('"b"')]);
   });
 
   it("verifies magic bytes instead of trusting the declared type", async () => {
@@ -235,6 +293,18 @@ describe("handler with the Notion backend", () => {
     const h = createFeedbackRequestHandler({ backend: makeBackend(fake), logger: silentLogger });
     return h(makeRequest(submission));
   };
+
+  it("writes the server projectId to Notion and passes it to onSubmission", async () => {
+    const fake = new FakeNotion();
+    const onSubmission = vi.fn();
+    const notion = { apiKey: "secret_test", databaseId: "0123456789abcdef0123456789abcdef", client: fake.asClient(), logger: silentLogger, throttle: { requestsPerSecond: Infinity, maxConcurrent: 3 } };
+    const h = createFeedbackRequestHandler({ notion, projectId: "handler-project", onSubmission, logger: silentLogger });
+    expect((await h(makeRequest(makeSubmission({ projectId: "client" })))).status).toBe(201);
+    const h2 = createFeedbackRequestHandler({ notion: { ...notion, projectId: "notion-project" }, projectId: "handler-project", logger: silentLogger });
+    expect((await h2(makeRequest(makeSubmission({ projectId: "client" })))).status).toBe(201);
+    expect(fake.pages.map((p) => p.properties.Project.rich_text[0].text.content)).toEqual(["handler-project", "notion-project"]);
+    expect(onSubmission.mock.calls[0]![0].projectId).toBe("handler-project");
+  });
 
   it("happy path creates a Notion page", async () => {
     const fake = new FakeNotion();

@@ -8,7 +8,7 @@ Every report becomes one page in a Notion database. The server talks to Notion t
 | --- | --- | --- | --- | --- |
 | `Title` | Title | – | Report title | `title` |
 | `Description` | Text | – | Description, truncated to `descriptionPropertyMaxChars` (default 2000) | `description` |
-| `Status` | Select | Status | `statusDefault` (default `New`) | `status` |
+| `Status` | Select | Status | `statusDefault` (default `New`); on a Status property without it, the first To-do option | `status` |
 | `Category` | Select | Multi-select, Status, Text | Category label: `Bug`, `Design`, `Content`, `Feature request`, `Other`, or your own ([Categories](categories.md)) | `category` |
 | `Priority` | Select | Multi-select, Status, Text | `Low`, `Medium`, `High`, `Critical` | `priority` |
 | `Website URL` | URL | Text | URL of the page the report was made on | `websiteUrl` |
@@ -21,7 +21,7 @@ Every report becomes one page in a Notion database. The server talks to Notion t
 | `Operating System` | Text | – | e.g. `macOS 15.1` | `os` |
 | `Viewport` | Text | – | e.g. `1440×900 @2x` | `viewport` |
 | `Created` | Date | – | Client timestamp of the report (`createdAt`) | `created` |
-| `Project` | Text | Select | Project ID, if any | `project` |
+| `Project` | Text | Select | Project ID: the server's if set, else the client's ([Server](server.md#project-id)) | `project` |
 | `Submission ID` | Text | – | Client-generated UUID, used for [idempotency](reliability.md) | `submissionId` |
 
 Options created with the selects:
@@ -56,7 +56,7 @@ With `notion.autoSetupSchema` on (the default), the backend inspects the databas
 - **Compatible types are reused.** A property whose type is in "Created as" or "Also accepted" is filled. You can, for example, turn `Status` into a Notion Status property or `Project` into a select.
 - **Incompatible types are skipped.** The field isn't written, and a warning names the property, its type and the expected types.
 - **Category options.** Options for configured categories that are missing from a `Category` select or multi-select are appended with their colors. Existing options are left alone.
-- **Status-type properties.** Notion's API can't add options to a Status property. A value is written only if the option already exists, so for a Status-type `Status` column set `notion.statusDefault` to one of its options (for example `"Not started"`). A Status-type `Category` without a matching option logs a warning and the report is saved without a category.
+- **Status-type properties.** Notion's API can't add options to a Status property, and the backend never tries. For a Status-type `Status` column, `statusDefault` is written if it is an option; otherwise the first option of the property's To-do group (its first group; with Notion's defaults, `Not started`); otherwise no status is set and a warning is logged. The chosen option is logged once. A Status-type `Category` without a matching option logs a warning and the report is saved without a category.
 - **`Submission ID`** must be a Text property. Otherwise duplicate detection in Notion is disabled and a warning is logged.
 
 With `autoSetupSchema: false`, nothing is created; fields whose property doesn't exist are skipped. Notion still adds unknown options to plain select properties when a page is written.
@@ -74,7 +74,7 @@ The body is written by the server, in the handler's `locale` (see [International
 3. **Annotated screenshot** heading and image block.
 4. **Original screenshot** heading and image block.
 5. **Annotations** heading (if any): numbered pins with their notes, text annotations, and a count of arrows, rectangles and freehand drawings.
-6. **Capture notes** heading (if any): one line per [capture warning](screenshots.md), with counts.
+6. **Capture notes** heading (if any): one line per [capture warning](screenshots.md), with counts. A `blank-canvas` note says that canvases (e.g. WebGL) came out empty and suggests screen capture.
 7. **Environment** heading: URL, page title, browser, OS, viewport, screen, pixel ratio, language, timezone, referrer, capture method and size, submission time (UTC), user agent. Empty values are omitted.
 8. The submission ID in small gray text.
 
@@ -94,11 +94,11 @@ Size limits:
 
 | Limit | Value |
 | --- | --- |
-| `maxFileBytes` (handler option) | 5 MB default. Larger files are rejected with `413`. |
+| `maxFileBytes` (handler option) | 5 MB default. Larger files are rejected with `413` and `details: { maxFileBytes, field }`. |
 | Notion single-part upload | 5 MB on free workspaces, 20 MB on paid ones. |
 | `NotionFileUploader` hard cap | 20 MB. |
 
-Raise `maxFileBytes` only on a paid workspace. The widget's client also fits screenshots into 5 MB by default (re-encoding or downscaling them), independent of the server setting.
+Raise `maxFileBytes` only on a paid workspace. The widget's client also fits screenshots into 5 MB by default (re-encoding or downscaling them); a lower server limit is advertised in the `413` response's `details.maxFileBytes`.
 
 Files are named `pinpoint-<first 8 chars of the submission ID>-original.<ext>` and `…-annotated.<ext>`, with the extension taken from the sniffed image type.
 

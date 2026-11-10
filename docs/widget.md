@@ -31,7 +31,8 @@ import { FeedbackProvider } from "pinpoint-feedback/nextjs";
 | `defaultCategory` | an id from `categories` | first category | Preselected category. Type-checked against `categories`; an unknown id at runtime falls back to the first. |
 | `defaultPriority` | `"low" \| "medium" \| "high" \| "critical"` | `"medium"` | Preselected priority. |
 | `capturer` | `ScreenshotCapturer` | DOM capturer | Custom screenshot implementation. See [Screenshots](screenshots.md#custom-capturer). |
-| `client` | `FeedbackClient` | HTTP client with IndexedDB outbox, one per `endpoint` | Custom submission client. See [Reliability](reliability.md). |
+| `client` | `FeedbackClient` | HTTP client with IndexedDB outbox, one per `endpoint` and `maxFileBytes` | Custom submission client. See [Reliability](reliability.md). |
+| `maxFileBytes` | `number` | `5242880` (5 MB) | Largest size of each screenshot; bigger images are re-encoded or downscaled before upload. Raise it together with the handler's `maxFileBytes` for paid Notion workspaces. Ignored when `client` is set. See [Screenshots](screenshots.md#size-limits). |
 | `metadata` | `() => BrowserMetadata` | built-in collector | Replaces the collected browser metadata. Called once when a draft is created. |
 | `onSubmitted` | `(result: SubmissionSuccess) => void` | – | Called after Notion confirmed the page, with `{ submissionId, pageId, pageUrl, duplicate? }`. |
 | `onError` | `(error: FeedbackWidgetError) => void` | – | `{ type: "capture", error }` or `{ type: "submit", error: { code, message, retryable, … } }`. Not called when the reporter cancels a capture. |

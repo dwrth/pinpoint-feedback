@@ -29,6 +29,8 @@ export function formatCaptureWarning(warning: Pick<CaptureWarning, "code" | "cou
       return t("warning.crossOriginImage", { count });
     case "tainted-canvas":
       return t("warning.taintedCanvas", { count });
+    case "blank-canvas":
+      return t("warning.blankCanvas", { count });
     case "video":
       return t("warning.video", { count });
     case "font":

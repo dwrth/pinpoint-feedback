@@ -376,6 +376,11 @@ export function buildDomWarnings(
     });
   }
 
+  const blank = limitations.blankCanvases.length;
+  if (blank > 0) {
+    warnings.push({ code: "blank-canvas", count: blank, message: t("warning.blankCanvas", { count: blank }) });
+  }
+
   const videos = limitations.videos.length;
   if (videos > 0) {
     const missing = Math.min(videos, state.videosNotCaptured);

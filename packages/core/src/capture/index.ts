@@ -14,6 +14,7 @@ export { computeCaptureScale, DEFAULT_MAX_SCALE, type CaptureScaleInput, type Ca
 export {
   scanCaptureLimitations,
   isCanvasTainted,
+  isCanvasBlank,
   getAccessibleFrameDocument,
   type CaptureLimitations,
   type ScannedImage,

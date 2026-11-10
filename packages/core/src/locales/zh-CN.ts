@@ -162,6 +162,10 @@ export const zhCN = defineLocale({
     "pin.added": "已添加图钉 {number}",
     "pin.moved": "已移动图钉 {number}",
     "pin.deleted": "已删除图钉 {number}",
+    "pinNote.label": "图钉 {number} 的备注。按 Enter 保存，Shift+Enter 换行，Escape 取消。",
+    "pinNote.placeholder": "添加备注（可选）",
+    "pinNote.saved": "已保存图钉 {number} 的备注",
+    "pinNote.removed": "已删除图钉 {number} 的备注",
     "drawing.added": "已添加手绘",
     "drawing.moved": "已移动手绘",
     "drawing.deleted": "已删除手绘",
@@ -197,6 +201,9 @@ export const zhCN = defineLocale({
     },
     "warning.taintedCanvas": {
       other: "有 # 个 canvas 未能截取，因为其中包含跨域数据。",
+    },
+    "warning.blankCanvas": {
+      other: "# 个 canvas 在截图中显示为空白。WebGL 内容在绘制后通常无法读取；请尝试屏幕截取。",
     },
     "warning.video": {
       other: "有 # 个视频可能与正在播放的内容不一致。",
@@ -262,6 +269,9 @@ export const zhCN = defineLocale({
     },
     warningTaintedCanvas: {
       other: "有 # 个包含跨域数据的 canvas 未能截取。",
+    },
+    warningBlankCanvas: {
+      other: "# 个 canvas 在截图中显示为空白。如果它们在页面上显示内容（例如 WebGL），可使用屏幕截取将其包含在内。",
     },
     warningVideo: {
       other: "有 # 个视频未能截取或被截取为静态图像。",

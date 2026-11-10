@@ -22,6 +22,10 @@ export const enCapture = {
     one: "# canvas could not be captured because it contains cross-origin data.",
     other: "# canvases could not be captured because they contain cross-origin data.",
   },
+  "warning.blankCanvas": {
+    one: "# canvas appeared empty in the screenshot. WebGL content is often not readable after it has been drawn; try screen capture.",
+    other: "# canvases appeared empty in the screenshot. WebGL content is often not readable after it has been drawn; try screen capture.",
+  },
   "warning.video": {
     one: "# video may not match what was playing.",
     other: "# videos may not match what was playing.",

@@ -79,6 +79,8 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.up();
 }
 
+const PIN_NOTE = "Card edge is clipped";
+
 async function annotate(page: Page, dialog: Locator) {
   const editor = dialog.getByTestId("pinpoint-editor");
   const box = (await editor.boundingBox())!;
@@ -87,6 +89,11 @@ async function annotate(page: Page, dialog: Locator) {
   await dialog.getByRole("button", { name: "Pin", exact: true }).click();
   const pin = at(0.3, 0.35);
   await page.mouse.click(pin.x, pin.y);
+  const note = dialog.getByRole("textbox", { name: /^Note for pin 1/ });
+  await expect(note).toBeFocused();
+  await note.fill(PIN_NOTE);
+  await note.press("Enter");
+  await expect(note).toHaveCount(0);
 
   await dialog.getByRole("button", { name: "Rectangle" }).click();
   await drag(page, at(0.5, 0.3), at(0.75, 0.6));
@@ -181,7 +188,7 @@ test("captures, annotates and files feedback in Notion", async ({ page, request,
   const images = created.children.filter((b) => b.type === "image").map((b) => b.image.file_upload.id);
   expect(images.sort()).toEqual(uploads.map((u) => u.id).sort());
   expect(texts).toContain("Annotations");
-  expect(texts.some((t) => t.startsWith("#1"))).toBe(true);
+  expect(texts.some((t) => t.startsWith("#1") && t.includes(PIN_NOTE))).toBe(true);
   expect(texts.some((t) => /1 rectangle/.test(t))).toBe(true);
   expect(texts.some((t) => t.includes(`Submission ID: ${result.submissionId}`))).toBe(true);
   expect(texts).toContain("Capture notes");

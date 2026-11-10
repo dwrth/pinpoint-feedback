@@ -163,6 +163,10 @@ export const ja = defineLocale({
     "pin.added": "ピン {number} を追加しました",
     "pin.moved": "ピン {number} を移動しました",
     "pin.deleted": "ピン {number} を削除しました",
+    "pinNote.label": "ピン {number} のメモ。Enter で保存、Shift+Enter で改行、Escape でキャンセルします。",
+    "pinNote.placeholder": "メモを追加（任意）",
+    "pinNote.saved": "ピン {number} のメモを保存しました",
+    "pinNote.removed": "ピン {number} のメモを削除しました",
     "drawing.added": "描画を追加しました",
     "drawing.moved": "描画を移動しました",
     "drawing.deleted": "描画を削除しました",
@@ -198,6 +202,9 @@ export const ja = defineLocale({
     },
     "warning.taintedCanvas": {
       other: "# 個の canvas は、クロスオリジンのデータを含むためキャプチャできませんでした。",
+    },
+    "warning.blankCanvas": {
+      other: "# 個の canvas がスクリーンショットで空になりました。WebGL の内容は描画後に読み取れないことがよくあります。画面キャプチャをお試しください。",
     },
     "warning.video": {
       other: "# 個の動画は、再生中の内容と一致しない可能性があります。",
@@ -265,6 +272,9 @@ export const ja = defineLocale({
     },
     warningTaintedCanvas: {
       other: "クロスオリジンのデータを含む # 個の canvas をキャプチャできませんでした。",
+    },
+    warningBlankCanvas: {
+      other: "# 個の canvas がスクリーンショットで空になりました。ページ上で内容（WebGL など）が表示されている場合は、画面キャプチャを使うと含めることができます。",
     },
     warningVideo: {
       other: "# 個の動画をキャプチャできなかったか、静止画としてキャプチャされました。",

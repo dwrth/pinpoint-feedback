@@ -170,6 +170,10 @@ export const de = defineLocale({
     "pin.added": "Pin {number} hinzugefügt",
     "pin.moved": "Pin {number} verschoben",
     "pin.deleted": "Pin {number} gelöscht",
+    "pinNote.label": "Notiz zu Pin {number}. Eingabe zum Speichern, Umschalt+Eingabe für eine neue Zeile, Escape zum Abbrechen.",
+    "pinNote.placeholder": "Notiz hinzufügen (optional)",
+    "pinNote.saved": "Notiz für Pin {number} gespeichert",
+    "pinNote.removed": "Notiz von Pin {number} entfernt",
     "drawing.added": "Zeichnung hinzugefügt",
     "drawing.moved": "Zeichnung verschoben",
     "drawing.deleted": "Zeichnung gelöscht",
@@ -210,6 +214,10 @@ export const de = defineLocale({
     "warning.taintedCanvas": {
       one: "# Canvas konnte nicht erfasst werden, da es Cross-Origin-Daten enthält.",
       other: "# Canvas-Elemente konnten nicht erfasst werden, da sie Cross-Origin-Daten enthalten.",
+    },
+    "warning.blankCanvas": {
+      one: "# Canvas-Element war im Screenshot leer. WebGL-Inhalte lassen sich nach dem Zeichnen oft nicht auslesen; die Bildschirmaufnahme kann helfen.",
+      other: "# Canvas-Elemente waren im Screenshot leer. WebGL-Inhalte lassen sich nach dem Zeichnen oft nicht auslesen; die Bildschirmaufnahme kann helfen.",
     },
     "warning.video": {
       one: "# Video entspricht möglicherweise nicht dem, was gerade abgespielt wurde.",
@@ -288,6 +296,10 @@ export const de = defineLocale({
     warningTaintedCanvas: {
       one: "Ein Canvas mit Cross-Origin-Daten konnte nicht erfasst werden.",
       other: "# Canvas-Elemente mit Cross-Origin-Daten konnten nicht erfasst werden.",
+    },
+    warningBlankCanvas: {
+      one: "# Canvas-Element war im Screenshot leer. Falls es auf der Seite Inhalte zeigt (zum Beispiel WebGL), bezieht die Bildschirmaufnahme sie mit ein.",
+      other: "# Canvas-Elemente waren im Screenshot leer. Falls sie auf der Seite Inhalte zeigen (zum Beispiel WebGL), bezieht die Bildschirmaufnahme sie mit ein.",
     },
     warningVideo: {
       one: "Ein Video konnte nicht oder nur als Standbild erfasst werden.",

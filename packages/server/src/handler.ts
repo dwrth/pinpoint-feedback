@@ -40,7 +40,10 @@ export interface FeedbackHandlerOptions {
   locale?: LocaleBundle;
   /** Message overrides applied on top of `locale` (only `report` is used). Also used unless `notion.messages` is set. */
   messages?: LocaleOverrides;
-  /** Overrides the projectId sent by the client. */
+  /**
+   * Project written for every report. The server value wins: when set (here, via `notion.projectId` or
+   * `PINPOINT_PROJECT_ID`), the client's `projectId` is ignored; the client value is used only when the server has none.
+   */
   projectId?: string;
   /** Cross-origin callers allowed to submit. Default: same-origin only. */
   allowedOrigins?: string[] | "*";
@@ -79,6 +82,7 @@ const STATUS_BY_CODE: Record<SubmissionErrorCode, number> = {
 };
 
 const MULTIPART_SLACK_BYTES = 64 * 1024;
+const IGNORED_PROJECT_IDS_LOGGED = 100;
 const FUTURE_TOLERANCE_MS = 60_000;
 
 function fail(
@@ -155,12 +159,15 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
   const allowedSet = new Set(Array.isArray(allowed) ? allowed.map((o) => originOf(o) ?? o) : []);
 
   let backend: FeedbackBackend | undefined = options.backend;
+  let serverProjectId = options.backend ? options.projectId : undefined;
   const getBackend = (): FeedbackBackend => {
     if (backend) return backend;
     if (options.notion) {
+      serverProjectId = options.notion.projectId ?? options.projectId;
       backend = new NotionFeedbackBackend({
         logger,
         ...options.notion,
+        projectId: serverProjectId,
         categories: notionCategories,
         locale: options.notion.locale ?? options.locale,
         messages: options.notion.messages ?? options.messages,
@@ -168,17 +175,32 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
       return backend;
     }
     const env = resolveNotionConfigFromEnv();
+    serverProjectId = options.projectId ?? env.projectId;
     backend = new NotionFeedbackBackend({
       ...env,
       logger,
       categories,
       locale: options.locale,
       messages: options.messages,
-      projectId: options.projectId ?? env.projectId,
+      projectId: serverProjectId,
     });
     return backend;
   };
   const checksDuplicatesItself = () => backend instanceof NotionFeedbackBackend;
+
+  const ignoredProjectIds = new Set<string>();
+  const applyServerProjectId = (submission: FeedbackSubmission) => {
+    getBackend();
+    if (serverProjectId === undefined) return;
+    const sent = submission.projectId;
+    if (sent !== undefined && sent !== serverProjectId && !ignoredProjectIds.has(sent) && ignoredProjectIds.size < IGNORED_PROJECT_IDS_LOGGED) {
+      ignoredProjectIds.add(sent);
+      logger.info(
+        `[pinpoint] Ignoring client projectId ${JSON.stringify(sent)}; the server projectId ${JSON.stringify(serverProjectId)} is used for all reports.`,
+      );
+    }
+    submission.projectId = serverProjectId;
+  };
 
   const isAllowedCrossOrigin = (origin: string) => allowed === "*" || allowedSet.has(origin);
 
@@ -238,10 +260,10 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
     const maxBody = LIMITS.payloadMaxBytes + 2 * maxFileBytes + MULTIPART_SLACK_BYTES;
     const declared = Number(request.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > maxBody) {
-      throw fail("payload_too_large", "The submission is too large.");
+      throw fail("payload_too_large", "The submission is too large.", { details: { maxFileBytes } });
     }
     const bytes = await readBodyLimited(request, maxBody);
-    if (!bytes) throw fail("payload_too_large", "The submission is too large.");
+    if (!bytes) throw fail("payload_too_large", "The submission is too large.", { details: { maxFileBytes } });
 
     let form: FormData;
     try {
@@ -270,6 +292,13 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
     const submissionId = submission.submissionId;
     ctx.submissionId = submissionId;
 
+    const idempotencyKey = request.headers.get("idempotency-key")?.trim();
+    if (idempotencyKey && idempotencyKey.toLowerCase() !== submissionId.toLowerCase()) {
+      throw fail("validation", "The Idempotency-Key header does not match the submission ID.", {
+        details: { issues: [{ path: "submissionId", message: "must equal the Idempotency-Key header" }] },
+      });
+    }
+
     if (submission.website && submission.website.trim() !== "") {
       throw fail("spam", "The submission was rejected.");
     }
@@ -294,7 +323,9 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
       }
       if (value.size === 0) throw fail("validation", `"${field}" is empty.`);
       if (value.size > maxFileBytes) {
-        throw fail("payload_too_large", `"${field}" exceeds the ${Math.floor(maxFileBytes / 1024)} KB limit.`);
+        throw fail("payload_too_large", `"${field}" exceeds the ${Math.floor(maxFileBytes / 1024)} KB limit.`, {
+          details: { maxFileBytes, field },
+        });
       }
       const declaredType = value.type.split(";")[0]?.trim().toLowerCase() ?? "";
       if (declaredType && declaredType !== "application/octet-stream" && !(ALLOWED_IMAGE_TYPES as readonly string[]).includes(declaredType)) {
@@ -310,7 +341,7 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
       };
     }
 
-    if (options.projectId !== undefined) submission.projectId = options.projectId;
+    applyServerProjectId(submission);
 
     const cached = completed.get(submissionId);
     if (cached) return { result: success(submissionId, cached, true), status: 200 };
@@ -362,7 +393,7 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
       if (crossOrigin && !(origin && isAllowedCrossOrigin(origin))) return new Response(null, { status: 403, headers });
       headers.set("access-control-allow-methods", "POST, OPTIONS");
       const requested = request.headers.get("access-control-request-headers");
-      headers.set("access-control-allow-headers", requested && /^[\w\-, ]{1,500}$/.test(requested) ? requested : "content-type");
+      headers.set("access-control-allow-headers", requested && /^[\w\-, ]{1,500}$/.test(requested) ? requested : "content-type, idempotency-key");
       headers.set("access-control-max-age", "86400");
       return new Response(null, { status: 204, headers });
     }

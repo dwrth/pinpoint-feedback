@@ -26,6 +26,7 @@ const CAPTURE_WARNING_CODES = new Set([
   "cross-origin-iframe",
   "cross-origin-image",
   "tainted-canvas",
+  "blank-canvas",
   "video",
   "font",
   "downscaled",

@@ -89,7 +89,7 @@ class Client implements FeedbackClient {
   private readonly transport: FeedbackTransport;
   private readonly outbox: FeedbackOutbox;
   private readonly maxAttempts: number;
-  private readonly maxFileBytes: number;
+  private maxFileBytes: number;
   private readonly maxInlineWaitMs: number;
   private readonly random: () => number;
   private readonly now: () => number;
@@ -195,11 +195,16 @@ class Client implements FeedbackClient {
     emit({ phase: "queued", attempt: 0 });
 
     let attempt = 0;
+    let refitted = false;
     while (true) {
       if (signal?.aborted) return fail(await this.recordFailure(entry, abortedFailure(id), 1), attempt);
       attempt++;
       emit({ phase: "sending", attempt });
       const result = await this.send(entry, signal);
+      if (!refitted && (await this.refitToServerLimit(entry, result, rawFiles))) {
+        refitted = true;
+        continue;
+      }
       if (result.ok) {
         await this.safe(() => this.outbox.remove(id));
         emit({ phase: "done", attempt });
@@ -231,7 +236,8 @@ class Client implements FeedbackClient {
 
       const run = (async () => {
         const entry = (await this.safe(() => this.outbox.get(id))) ?? listed;
-        const result = await this.send(entry, options.signal);
+        let result = await this.send(entry, options.signal);
+        if (await this.refitToServerLimit(entry, result, entry.files)) result = await this.send(entry, options.signal);
         if (result.ok) {
           await this.safe(() => this.outbox.remove(id));
           return result;
@@ -282,6 +288,31 @@ class Client implements FeedbackClient {
     return out;
   }
 
+  /**
+   * After a 413 whose `details.maxFileBytes` is below the largest file sent, lowers the client's
+   * limit for its lifetime, re-fits the images and updates the outbox entry. True when the caller
+   * should resend once.
+   */
+  private async refitToServerLimit(
+    entry: OutboxEntry,
+    result: SubmissionResult,
+    source: SubmissionFiles,
+  ): Promise<boolean> {
+    if (result.ok || result.error.code !== "payload_too_large") return false;
+    const limit = serverFileLimit(result.error.details);
+    if (limit === undefined) return false;
+    const largest = Math.max(0, ...[entry.files.screenshot, entry.files.annotatedScreenshot].map((f) => f?.size ?? 0));
+    if (limit >= largest) return false;
+    this.maxFileBytes = Math.min(this.maxFileBytes, limit);
+    try {
+      entry.files = await this.prepareFiles(source);
+    } catch {
+      return false;
+    }
+    await this.safe(() => this.outbox.put(entry));
+    return true;
+  }
+
   private async send(entry: OutboxEntry, signal: AbortSignal | undefined): Promise<SubmissionResult> {
     const id = entry.submission.submissionId;
     entry.attempts += 1;
@@ -320,12 +351,20 @@ class Client implements FeedbackClient {
   }
 }
 
+function serverFileLimit(details: unknown): number | undefined {
+  if (!details || typeof details !== "object") return undefined;
+  const value = (details as { maxFileBytes?: unknown }).maxFileBytes;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 /**
  * Creates the browser submission client.
  *
  * - `submit` validates, fits images to `maxFileBytes`, persists to the outbox, then sends with
  *   exponential backoff + jitter (honouring `retryAfter`) up to `maxAttempts` for retryable errors.
  *   The same submissionId is sent each time (server dedupes via Idempotency-Key).
+ * - A `payload_too_large` response carrying `details.maxFileBytes` below the size of the files
+ *   sent lowers `maxFileBytes` for the client's lifetime; the images are re-fitted and sent once more.
  * - Success removes the entry. Permanent failures (validation, payload_too_large,
  *   unsupported_media_type, spam) remove it. Everything else, including exhausted retryable
  *   failures, other non-retryable server errors and caller aborts, stays for `retryPending`.

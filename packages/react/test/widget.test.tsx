@@ -87,6 +87,14 @@ function fillTitle(value: string) {
 }
 
 describe("FeedbackWidget", () => {
+  it("creates the default client with the endpoint and maxFileBytes", async () => {
+    const { createFeedbackClient } = await import("@pinpoint-feedback/core");
+    render(<FeedbackWidget endpoint="/api/large-files" maxFileBytes={20 * 1024 * 1024} />);
+    await waitFor(() =>
+      expect(createFeedbackClient).toHaveBeenCalledWith({ endpoint: "/api/large-files", maxFileBytes: 20 * 1024 * 1024 }),
+    );
+  });
+
   it("renders the button into a shadow root on an ignored host", () => {
     const { client } = makeClient();
     render(<FeedbackWidget client={client} />);

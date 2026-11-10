@@ -17,6 +17,7 @@ import {
   createCaptureFilter,
   createDefaultCapturer,
   hideExcludedElements,
+  isCanvasBlank,
   isExcludedElement,
   scanCaptureLimitations,
   toDisplayMediaError,
@@ -133,6 +134,92 @@ describe("exclusion", () => {
     restore();
     expect(widget.style.getPropertyValue("visibility")).toBe("");
     expect(widget.style.getPropertyValue("opacity")).toBe("0.5");
+  });
+});
+
+/**
+ * Stubs 2D contexts of scratch canvases: drawImage records the source, getImageData returns pixels
+ * whose alpha is taken from `alphaOf(source)`. Returns the canvases getContext was called on.
+ */
+function stubScratchContext(alphaOf: (source: HTMLCanvasElement) => number) {
+  const contextOwners: HTMLCanvasElement[] = [];
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function (this: HTMLCanvasElement) {
+    contextOwners.push(this);
+    let source: HTMLCanvasElement | undefined;
+    return {
+      drawImage: (img: HTMLCanvasElement) => {
+        source = img;
+      },
+      getImageData: (_x: number, _y: number, w: number, h: number) => {
+        const data = new Uint8ClampedArray(w * h * 4);
+        if (source) data[data.length - 1] = alphaOf(source);
+        return { data };
+      },
+    } as unknown as CanvasRenderingContext2D;
+  } as unknown as typeof HTMLCanvasElement.prototype.getContext);
+  return contextOwners;
+}
+
+function readableCanvas(id: string): HTMLCanvasElement {
+  const canvas = document.getElementById(id) as HTMLCanvasElement;
+  canvas.width = 300;
+  canvas.height = 150;
+  canvas.toDataURL = () => "data:image/png;base64,AAAA";
+  return canvas;
+}
+
+describe("blank canvas detection", () => {
+  it("flags readable, visible canvases whose sampled pixels are all transparent", () => {
+    stubLayout();
+    document.body.innerHTML = `
+      <canvas id="webgl"></canvas>
+      <canvas id="drawn"></canvas>
+      <canvas id="empty-size"></canvas>
+      <canvas id="tainted"></canvas>
+      <canvas id="off" data-offscreen></canvas>
+      <div ${PINPOINT_IGNORE_ATTRIBUTE}><canvas id="ignored"></canvas></div>`;
+    const webgl = readableCanvas("webgl");
+    const drawn = readableCanvas("drawn");
+    readableCanvas("off");
+    readableCanvas("ignored");
+    const emptySize = document.getElementById("empty-size") as HTMLCanvasElement;
+    emptySize.width = 0;
+    stubTainted(document.getElementById("tainted") as HTMLCanvasElement);
+    const owners = stubScratchContext((source) => (source === drawn ? 255 : 0));
+
+    const result = scanCaptureLimitations(document);
+    expect(result.blankCanvases).toEqual([webgl]);
+    expect(result.taintedCanvases.map((el) => el.id)).toEqual(["tainted"]);
+    const pageCanvases = new Set(document.querySelectorAll("canvas"));
+    expect(owners.length).toBeGreaterThan(0);
+    expect(owners.some((c) => pageCanvases.has(c))).toBe(false);
+  });
+
+  it("returns false when sampling is impossible", () => {
+    document.body.innerHTML = `<canvas id="c"></canvas>`;
+    const canvas = readableCanvas("c");
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    expect(isCanvasBlank(canvas)).toBe(false);
+  });
+
+  it("emits a blank-canvas warning without a placeholder", async () => {
+    stubLayout();
+    document.body.innerHTML = `<canvas id="webgl"></canvas>`;
+    readableCanvas("webgl");
+    stubScratchContext(() => 0);
+    let clone: HTMLElement | undefined;
+    domToBlobMock.mockImplementation(async (node: unknown, options?: RenderOptions) => {
+      clone = (node as HTMLElement).cloneNode(true) as HTMLElement;
+      await options?.onCloneNode?.(clone);
+      return new Blob(["png"], { type: "image/png" });
+    });
+    const result = await new DomScreenshotCapturer().capture();
+    expect(result.warnings.find((w) => w.code === "blank-canvas")).toMatchObject({
+      count: 1,
+      message: expect.stringMatching(/^1 canvas appeared empty/),
+    });
+    expect(clone?.querySelector(`[${PLACEHOLDER_ATTRIBUTE}]`)).toBeNull();
+    expect(clone?.querySelector("canvas")).not.toBeNull();
   });
 });
 

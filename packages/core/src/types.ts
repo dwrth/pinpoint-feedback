@@ -89,6 +89,7 @@ export type CaptureWarningCode =
   | "cross-origin-iframe"
   | "cross-origin-image"
   | "tainted-canvas"
+  | "blank-canvas"
   | "video"
   | "font"
   | "downscaled"

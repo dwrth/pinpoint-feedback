@@ -51,6 +51,11 @@ export interface FeedbackWidgetProps<C extends CategoryList = DefaultCategoryLis
   defaultPriority?: FeedbackPriority;
   capturer?: ScreenshotCapturer;
   client?: FeedbackClient;
+  /**
+   * Max bytes per screenshot; larger images are re-encoded/downscaled before upload. Must not exceed
+   * the server handler's `maxFileBytes`. Ignored when `client` is given. Default 5 MB.
+   */
+  maxFileBytes?: number;
   metadata?: () => BrowserMetadata;
   onSubmitted?: (result: SubmissionSuccess) => void;
   onError?: (error: FeedbackWidgetError) => void;

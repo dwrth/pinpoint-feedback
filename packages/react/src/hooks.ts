@@ -20,11 +20,12 @@ export function useResolvedTheme(theme: FeedbackWidgetTheme): "light" | "dark" {
 
 const clients = new Map<string, FeedbackClient>();
 
-export function getDefaultClient(endpoint: string): FeedbackClient {
-  let client = clients.get(endpoint);
+export function getDefaultClient(endpoint: string, maxFileBytes?: number): FeedbackClient {
+  const key = `${maxFileBytes ?? ""} ${endpoint}`;
+  let client = clients.get(key);
   if (!client) {
-    client = createFeedbackClient({ endpoint });
-    clients.set(endpoint, client);
+    client = createFeedbackClient({ endpoint, maxFileBytes });
+    clients.set(key, client);
   }
   return client;
 }

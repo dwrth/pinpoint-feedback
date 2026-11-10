@@ -50,7 +50,7 @@ NOTION_FEEDBACK_DATABASE_ID=0123456789abcdef0123456789abcdef
 | `NOTION_API_KEY` | server | yes | Internal integration secret. |
 | `NOTION_FEEDBACK_DATABASE_ID` | server | yes | Database ID, hyphenated UUID, or database URL. |
 | `NOTION_API_BASE_URL` | server | no | Notion API origin override, for a proxy or the bundled test mock. |
-| `PINPOINT_PROJECT_ID` | server | no | Project written to the `Project` property of every report. It **replaces** any `projectId` the widget sends. |
+| `PINPOINT_PROJECT_ID` | server | no | Project written to the `Project` property of every report. The server value wins; the widget's `projectId` is used only when the server has none. |
 | `NEXT_PUBLIC_PINPOINT_ENDPOINT` | client | no | Endpoint used by `pinpoint-feedback/nextjs` when no `endpoint` prop is passed. Default `/api/feedback`. |
 | `NEXT_PUBLIC_PINPOINT_PROJECT_ID` | client | no | `projectId` used by `pinpoint-feedback/nextjs` when no `projectId` prop is passed. |
 

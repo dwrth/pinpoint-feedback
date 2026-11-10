@@ -16,6 +16,11 @@ export interface CaptureLimitations {
   embeddedObjects: HTMLElement[];
   /** Canvases whose pixels cannot be read (toDataURL throws SecurityError). */
   taintedCanvases: HTMLCanvasElement[];
+  /**
+   * Readable canvases with a nonzero size whose sampled pixels are all transparent, typically WebGL
+   * canvases without `preserveDrawingBuffer`. They may also be legitimately empty.
+   */
+  blankCanvases: HTMLCanvasElement[];
   videos: HTMLVideoElement[];
   /** `position: sticky` elements; their stuck position must be reproduced explicitly. */
   stickyElements: HTMLElement[];
@@ -95,6 +100,30 @@ export function isCanvasTainted(canvas: HTMLCanvasElement): boolean {
   }
 }
 
+const BLANK_SAMPLE_SIZE = 64;
+
+/**
+ * True when every sampled pixel of `canvas` is fully transparent. Never calls `getContext` on the
+ * page canvas (that could create a context the host app does not expect); the canvas is drawn onto
+ * a scratch 2D canvas instead. Returns false when sampling is impossible.
+ */
+export function isCanvasBlank(canvas: HTMLCanvasElement): boolean {
+  if (canvas.width === 0 || canvas.height === 0) return false;
+  try {
+    const scratch = canvas.ownerDocument.createElement("canvas");
+    scratch.width = Math.min(BLANK_SAMPLE_SIZE, canvas.width);
+    scratch.height = Math.min(BLANK_SAMPLE_SIZE, canvas.height);
+    const ctx = scratch.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return false;
+    ctx.drawImage(canvas, 0, 0, scratch.width, scratch.height);
+    const { data } = ctx.getImageData(0, 0, scratch.width, scratch.height);
+    for (let i = 3; i < data.length; i += 4) if (data[i] !== 0) return false;
+    return data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function toAbsoluteUrl(raw: string, base: string): string | null {
   if (!raw || raw.startsWith("data:")) return null;
   try {
@@ -138,6 +167,7 @@ export function scanCaptureLimitations(root: Element | Document, options: ScanOp
     crossOriginIframes: [],
     embeddedObjects: [],
     taintedCanvases: [],
+    blankCanvases: [],
     videos: [],
     stickyElements: [],
     images: [],
@@ -183,11 +213,13 @@ export function scanCaptureLimitations(root: Element | Document, options: ScanOp
       case "embed":
         if (visible()) result.embeddedObjects.push(element as HTMLElement);
         break;
-      case "canvas":
-        if (visible() && isCanvasTainted(element as HTMLCanvasElement)) {
-          result.taintedCanvases.push(element as HTMLCanvasElement);
-        }
+      case "canvas": {
+        const canvas = element as HTMLCanvasElement;
+        if (!visible()) break;
+        if (isCanvasTainted(canvas)) result.taintedCanvases.push(canvas);
+        else if (isCanvasBlank(canvas)) result.blankCanvases.push(canvas);
         break;
+      }
       case "video":
         if (visible()) result.videos.push(element as HTMLVideoElement);
         break;

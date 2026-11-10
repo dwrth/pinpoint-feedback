@@ -169,6 +169,10 @@ export const pl = defineLocale({
     "pin.added": "Dodano pinezkę {number}",
     "pin.moved": "Przeniesiono pinezkę {number}",
     "pin.deleted": "Usunięto pinezkę {number}",
+    "pinNote.label": "Notatka do pinezki {number}. Enter – zapisz, Shift+Enter – nowy wiersz, Escape – anuluj.",
+    "pinNote.placeholder": "Dodaj notatkę (opcjonalnie)",
+    "pinNote.saved": "Zapisano notatkę do pinezki {number}",
+    "pinNote.removed": "Usunięto notatkę z pinezki {number}",
     "drawing.added": "Dodano rysunek",
     "drawing.moved": "Przeniesiono rysunek",
     "drawing.deleted": "Usunięto rysunek",
@@ -213,6 +217,12 @@ export const pl = defineLocale({
       few: "Nie udało się przechwycić # elementów canvas, ponieważ zawierają dane z innych domen.",
       many: "Nie udało się przechwycić # elementów canvas, ponieważ zawierają dane z innych domen.",
       other: "Nie udało się przechwycić # elementu canvas, ponieważ zawierają dane z innych domen.",
+    },
+    "warning.blankCanvas": {
+      one: "# element canvas jest pusty na zrzucie ekranu. Zawartości WebGL często nie da się odczytać po narysowaniu; spróbuj przechwytywania ekranu.",
+      few: "# elementy canvas są puste na zrzucie ekranu. Zawartości WebGL często nie da się odczytać po narysowaniu; spróbuj przechwytywania ekranu.",
+      many: "# elementów canvas jest pustych na zrzucie ekranu. Zawartości WebGL często nie da się odczytać po narysowaniu; spróbuj przechwytywania ekranu.",
+      other: "Liczba pustych elementów canvas na zrzucie ekranu: #. Zawartości WebGL często nie da się odczytać po narysowaniu; spróbuj przechwytywania ekranu.",
     },
     "warning.video": {
       one: "# film może nie odpowiadać temu, co było odtwarzane.",
@@ -313,6 +323,12 @@ export const pl = defineLocale({
       few: "Nie udało się przechwycić # elementów canvas z danymi z innych domen.",
       many: "Nie udało się przechwycić # elementów canvas z danymi z innych domen.",
       other: "Nie udało się przechwycić # elementu canvas z danymi z innych domen.",
+    },
+    warningBlankCanvas: {
+      one: "# element canvas jest pusty na zrzucie ekranu. Jeśli na stronie wyświetla treść (np. WebGL), przechwytywanie ekranu pozwala ją uwzględnić.",
+      few: "# elementy canvas są puste na zrzucie ekranu. Jeśli na stronie wyświetlają treść (np. WebGL), przechwytywanie ekranu pozwala ją uwzględnić.",
+      many: "# elementów canvas jest pustych na zrzucie ekranu. Jeśli na stronie wyświetlają treść (np. WebGL), przechwytywanie ekranu pozwala ją uwzględnić.",
+      other: "Liczba pustych elementów canvas na zrzucie ekranu: #. Jeśli na stronie wyświetlają treść (np. WebGL), przechwytywanie ekranu pozwala ją uwzględnić.",
     },
     warningVideo: {
       one: "Nie udało się przechwycić filmu lub przechwycono go jako nieruchomy obraz.",

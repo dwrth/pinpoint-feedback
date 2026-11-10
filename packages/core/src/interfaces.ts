@@ -85,7 +85,7 @@ export interface AnnotationEditorState {
   canRedo: boolean;
   annotationCount: number;
   selectedId?: string;
-  /** True while a text annotation is being typed. */
+  /** True while a text annotation or a pin note is being typed. */
   editingText: boolean;
 }
 
@@ -107,6 +107,11 @@ export interface AnnotationEditorOptions {
   messages?: EditorMessages;
   /** BCP 47 tag used to format numbers in announcements. Default "en". */
   locale?: string;
+  /**
+   * Open a note input next to each newly placed pin. Notes can still be edited by double-clicking a
+   * pin or pressing Enter on a selected pin when false. Default true.
+   */
+  pinNotes?: boolean;
 }
 
 export interface AnnotationEditor {

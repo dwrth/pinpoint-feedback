@@ -9,7 +9,9 @@
  *   GET    /__mock/pages      created pages (with `plain` property values and children)
  *   GET    /__mock/uploads    file uploads (metadata, size, leading bytes)
  *   GET    /__mock/schema     current data source properties ({properties}; select/multi_select/status
- *                              options include ids and colors, like the real API)
+ *                              options include ids and colors, status properties also groups, like the real API;
+ *                              a status property created via PATCH gets Notion's defaults: Not started /
+ *                              In progress / Done in the To-do / In progress / Complete groups)
  *   GET    /__mock/requests   request log
  *   POST   /__mock/fail       {status?, code?, times?, method?, path?} make matching requests fail
  *                              (default: every POST /v1/pages; `path` may end with * for a prefix)
@@ -159,6 +161,20 @@ function mergeOptions(previous, sent, propertyName) {
   });
 }
 
+// Notion creates status properties with fixed default options and groups; the API cannot change them.
+function defaultStatusConfig() {
+  const options = [
+    { name: "Not started", color: "default" },
+    { name: "In progress", color: "blue" },
+    { name: "Done", color: "green" },
+  ].map(newOption);
+  const group = (name, color, option) => ({ id: randomUUID().slice(0, 8), name, color, option_ids: [option.id] });
+  return {
+    options,
+    groups: [group("To-do", "gray", options[0]), group("In progress", "blue", options[1]), group("Complete", "green", options[2])],
+  };
+}
+
 function updateProperties(changes) {
   for (const [name, config] of Object.entries(changes ?? {})) {
     if (config === null) {
@@ -169,7 +185,11 @@ function updateProperties(changes) {
     if (!type) throw mockError(400, "validation_error", `Invalid property schema for "${name}".`);
     const existing = state.properties[name];
     let typeConfig = config[type] ?? {};
-    if (CHOICE_TYPES.has(type)) {
+    if (type === "status" && existing?.type !== "status") {
+      typeConfig = defaultStatusConfig();
+    } else if (type === "status") {
+      typeConfig = existing.status;
+    } else if (CHOICE_TYPES.has(type)) {
       const previous = (existing?.type === type ? existing[type].options : undefined) ?? [];
       const options = Array.isArray(typeConfig.options) ? mergeOptions(previous, typeConfig.options, name) : previous;
       typeConfig = { ...typeConfig, options };

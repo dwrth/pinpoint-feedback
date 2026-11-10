@@ -45,6 +45,10 @@ export const enReport = {
     one: "A canvas with cross-origin data could not be captured.",
     other: "# canvases with cross-origin data could not be captured.",
   },
+  warningBlankCanvas: {
+    one: "# canvas appeared empty in the screenshot. If it shows content on the page (for example WebGL), use screen capture to include it.",
+    other: "# canvases appeared empty in the screenshot. If they show content on the page (for example WebGL), use screen capture to include them.",
+  },
   warningVideo: {
     one: "A video could not be captured or was captured as a still image.",
     other: "# videos could not be captured or were captured as still images.",
@@ -101,6 +105,8 @@ export const enReportContext: Partial<Record<keyof typeof enReport, string>> = {
   freehandCount: "A freehand stroke drawn with the pen tool.",
   warningCrossOriginIframe: "An embedded page from another website that the browser does not let the screenshot read.",
   warningTaintedCanvas: "A <canvas> element containing data from another website.",
+  warningBlankCanvas:
+    "A <canvas> element (often a WebGL 3D view or chart) that came out blank in the screenshot. 'Screen capture' is the widget's alternative capture method via the browser's screen-sharing prompt.",
   warningFont: "Count is usually 1; use the same text in all forms if no count fits.",
   warningDownscaled: "Count is usually 1; use the same text in all forms if no count fits.",
   warningUnknown: "Other page elements (embedded objects, images) that could not be captured.",

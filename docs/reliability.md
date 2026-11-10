@@ -4,7 +4,7 @@ A report should reach Notion exactly once, even if the network drops, the tab cl
 
 ## Submission IDs
 
-The browser generates a UUID (`createId()`, using `crypto.randomUUID` when available) for each report. Every attempt for that report sends the same ID in the payload's `submissionId`, and the HTTP transport also sends it as an `Idempotency-Key` header. The server deduplicates on the payload's `submissionId`; it doesn't read the header.
+The browser generates a UUID (`createId()`, using `crypto.randomUUID` when available) for each report. Every attempt for that report sends the same ID in the payload's `submissionId`, and the HTTP transport also sends it as an `Idempotency-Key` header. The server deduplicates on `submissionId`. If `Idempotency-Key` is present, it must equal `submissionId` (case-insensitive UUID compare); a mismatch is rejected with `400 validation` and an issue on `submissionId`. Without the header, `submissionId` alone is used.
 
 The ID is stored in the `Submission ID` property of the Notion page and shown at the bottom of the page body.
 
@@ -18,6 +18,8 @@ After validation, the handler checks for an existing result in this order:
 | In-flight map | per handler instance | If the same ID is already being processed, the request waits for that result instead of starting a second write. |
 | Notion lookup | authoritative | Before creating a page, the backend queries the database for a page whose `Submission ID` equals the ID. A match returns `200` with `duplicate: true`. |
 | Lookup before retry | authoritative | When page creation fails with a retryable error, the backend sleeps, then queries `Submission ID` again before retrying. If the page exists, it's used. |
+
+The handler never answers `409 Conflict`. A concurrent duplicate waits for the in-flight creation and gets its result as `200` with `duplicate: true`; if that creation fails, the waiting request gets the same error.
 
 The last step covers lost responses: Notion may create the page and then the response times out. Without the lookup, the retry would create a second page.
 
@@ -59,7 +61,7 @@ Backoff: `1s × 3^(n−1)`, capped at 30 s, with ±20 % jitter (1 s, 3 s, 9 s, �
 | Caller abort | no | yes |
 | `validation`, `spam`, `payload_too_large`, `unsupported_media_type` | no | **no** (dropped) |
 
-The dropped codes can never succeed with the same payload. Everything else stays, because a fixed configuration or a recovered Notion can still accept it later.
+The dropped codes can never succeed with the same payload. A screenshot `413` carries `details: { maxFileBytes, field }` (`field` is `"screenshot"` or `"annotatedScreenshot"`), and a body-size `413` carries `details: { maxFileBytes }`, so the client can re-fit the screenshots to the server's limit and send again. Everything else stays, because a fixed configuration or a recovered Notion can still accept it later.
 
 Before queueing, the client also validates the payload and fits each screenshot into `maxFileBytes` (default 5 MB) by re-encoding or downscaling it. Payload validation failures are returned immediately and nothing is queued.
 

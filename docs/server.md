@@ -50,9 +50,9 @@ All options apply to both functions.
 | `notion.baseUrl` | `string` | `NOTION_API_BASE_URL`, else Notion | API origin override. |
 | `notion.properties` | `Partial<NotionPropertyNames>` | default names | Property name per field. See [Notion](notion.md#custom-property-names). |
 | `notion.autoSetupSchema` | `boolean` | `true` | Add missing properties and category options on first use. |
-| `notion.statusDefault` | `string` | `"New"` | Status written to new reports. |
+| `notion.statusDefault` | `string` | `"New"` | Status written to new reports. On a Notion Status property without this option, the first option of its To-do group is used. See [Notion](notion.md#schema-auto-setup). |
 | `notion.descriptionPropertyMaxChars` | `number` | `2000` | Characters of the description kept in the `Description` property. The page body has the full text. |
-| `notion.projectId` | `string` | – | Project written to `Project`, replacing the client's. |
+| `notion.projectId` | `string` | handler's `projectId` | Server project ID for the Notion backend. Same rules as `projectId`, which it overrides. |
 | `notion.timeoutMs` | `number` | `30000` | Per-request Notion timeout. |
 | `notion.retry` | `NotionRetryOptions` | 3 retries, 500 ms–8 s | See [Notion](notion.md#rate-limits-and-retries). |
 | `notion.throttle` | `NotionThrottleOptions` | 3 req/s, burst 5, 3 concurrent | See [Notion](notion.md#rate-limits-and-retries). |
@@ -63,12 +63,12 @@ All options apply to both functions.
 | `categories` | `CategoryList` | the five built-ins | Accepted category IDs. Others get `400 validation`. Must match the widget. See [Categories](categories.md). |
 | `locale` | `LocaleBundle` | English | Language of the Notion page body. See [Internationalization](i18n.md). |
 | `messages` | `LocaleOverrides` | – | Overrides on top of `locale`; only the `report` section is used. |
-| `projectId` | `string` | `PINPOINT_PROJECT_ID` | Written to `Project` for every report, **replacing** the `projectId` the widget sent. |
+| `projectId` | `string` | `PINPOINT_PROJECT_ID` | Server project ID, written to `Project` and passed to `onSubmission`. The server value wins: the client's `projectId` is used only when the server has none. See [Project ID](#project-id). |
 | `allowedOrigins` | `string[] \| "*"` | same-origin only | Cross-origin callers that may submit. Enables CORS headers for them. |
 | `rateLimit` | `{ max, windowMs } \| false` | `{ max: 10, windowMs: 600000 }` | Per-client-IP, in-memory sliding window. `false` disables it. |
 | `trustProxy` | `boolean` | `true` | Read the client IP and host from `X-Forwarded-For` / `X-Real-IP` / `X-Forwarded-Host`. See [below](#client-ip-and-trustproxy). |
 | `getClientIp` | `(request) => string \| undefined` | – | Custom client IP for rate limiting. Takes precedence over the headers. |
-| `maxFileBytes` | `number` | `5242880` (5 MB) | Maximum size of each screenshot. |
+| `maxFileBytes` | `number` | `5242880` (5 MB) | Maximum size of each screenshot. Advertised in `413` responses. |
 | `minFillTimeMs` | `number` | `1500` | Reject submissions sent sooner than this after the widget opened. `0` disables. |
 | `onSubmission` | `(submission, record) => void \| Promise<void>` | – | Called after a new page is created, not for duplicates. Awaited before responding; errors are logged and ignored. |
 | `logger` | `{ info, warn, error }` | `console` | Server diagnostics. Secrets are never logged. |
@@ -89,6 +89,10 @@ export const POST = createFeedbackHandler({
 ```
 
 The hook runs before the response is sent, so keep it fast.
+
+### Project ID
+
+The server value wins; the client value is used only when the server has none. The server value is `notion.projectId`, else `projectId`, else `PINPOINT_PROJECT_ID` (when the environment is read). When it is set, a different `projectId` sent by the widget is ignored and logged with `logger.info`, once per distinct value (up to 100 values). The server value can't be overridden from the browser, so reports can't be filed under another project.
 
 ### Client IP and `trustProxy`
 
@@ -111,14 +115,15 @@ For a `POST`, in order:
 1. **Origin.** Cross-origin requests are rejected with `403` unless the origin is in `allowedOrigins`. A request without `Origin` but with `Sec-Fetch-Site: cross-site` is rejected when `allowedOrigins` isn't set.
 2. **Rate limit** per client IP (`429`). Every request counts, including invalid ones and client retries.
 3. **Content type** must be `multipart/form-data` (`415`).
-4. **Body size.** Capped at 512 KB for the JSON plus `2 × maxFileBytes` plus 64 KB, checked against `Content-Length` and while streaming (`413`).
+4. **Body size.** Capped at 512 KB for the JSON plus `2 × maxFileBytes` plus 64 KB, checked against `Content-Length` and while streaming (`413`, `details: { maxFileBytes }`).
 5. **Payload.** The `payload` field must be at most 512 KB of valid JSON and pass schema validation: lengths capped, enums enforced, URLs checked, annotations bounded, `submissionId` a UUID, category in `categories`. Unknown fields are dropped (`400 validation`, with `details.issues`).
-6. **Honeypot.** A non-empty `website` field is rejected (`400 spam`).
-7. **Fill time.** If the client sent `openedAt`, a value more than 60 s in the future or less than `minFillTimeMs` ago is rejected (`400 spam`).
-8. **Files.** `screenshot` and `annotatedScreenshot` are optional. Each must be non-empty, at most `maxFileBytes` (`413`), and its magic bytes must identify PNG, JPEG or WebP; a declared type other than those (or `application/octet-stream`) is rejected (`415`). The sniffed type is what gets stored.
-9. **Project.** `projectId` (option) replaces the client's value.
-10. **Dedupe.** See [Reliability](reliability.md#server-idempotency).
-11. **Persist** through the backend. Success is returned only once the backend confirms a record ID.
+6. **Idempotency key.** If an `Idempotency-Key` header is sent, it must equal `submissionId` (case-insensitive), else `400 validation` with an issue on `submissionId`. The dedupe key is always `submissionId`.
+7. **Honeypot.** A non-empty `website` field is rejected (`400 spam`).
+8. **Fill time.** If the client sent `openedAt`, a value more than 60 s in the future or less than `minFillTimeMs` ago is rejected (`400 spam`).
+9. **Files.** `screenshot` and `annotatedScreenshot` are optional. Each must be non-empty, at most `maxFileBytes` (`413`, `details: { maxFileBytes, field }`), and its magic bytes must identify PNG, JPEG or WebP; a declared type other than those (or `application/octet-stream`) is rejected (`415`). The sniffed type is what gets stored.
+10. **Project.** The server value wins; the client value is used only when the server has none. See [Project ID](#project-id).
+11. **Dedupe.** See [Reliability](reliability.md#server-idempotency).
+12. **Persist** through the backend. Success is returned only once the backend confirms a record ID.
 
 ## Responses
 
@@ -134,6 +139,14 @@ Failure:
 { "ok": false, "submissionId": "…", "error": { "code": "validation", "message": "…", "retryable": false, "details": { "issues": [] } } }
 ```
 
+A screenshot over `maxFileBytes` gets `413` with the limit and the offending form field, so the client can re-fit the image and retry:
+
+```json
+{ "ok": false, "submissionId": "…", "error": { "code": "payload_too_large", "message": "…", "retryable": false, "details": { "maxFileBytes": 5242880, "field": "screenshot" } } }
+```
+
+`field` is `"screenshot"` or `"annotatedScreenshot"`. When the whole body is too large, `details` is `{ "maxFileBytes": … }` only.
+
 `submissionId` is included once the payload has been parsed. `retryAfter` (seconds) is added to the error, and a `Retry-After` header is set, when known. All JSON responses carry `Cache-Control: no-store`.
 
 | Status | Code | Retryable | When |
@@ -141,11 +154,11 @@ Failure:
 | `201` | – | – | Page created. |
 | `200` | – | – | Duplicate: the page already existed (`duplicate: true`). |
 | `204` | – | – | CORS preflight accepted. |
-| `400` | `validation` | no | Malformed body or JSON, schema error, unknown category. |
+| `400` | `validation` | no | Malformed body or JSON, schema error, unknown category, `Idempotency-Key` not matching `submissionId`. |
 | `400` | `spam` | no | Honeypot or fill-time check. |
 | `403` | `validation` | no | Cross-origin request not allowed. Preflights get an empty `403`. |
 | `405` | `validation` | no | Method other than `POST` or `OPTIONS`. `OPTIONS` without `allowedOrigins` gets an empty `405`. |
-| `413` | `payload_too_large` | no | Body, payload or a file too large. |
+| `413` | `payload_too_large` | no | Body, payload or a file too large. `details.maxFileBytes` for files and the body. |
 | `415` | `unsupported_media_type` | no | Not multipart, or a file isn't PNG/JPEG/WebP. |
 | `429` | `rate_limited` | yes | Handler rate limit. `Retry-After` is set. |
 | `500` | `misconfigured` | no | Missing or invalid configuration. |
@@ -155,7 +168,7 @@ Failure:
 | `502` | `notion_error` | no / yes | Notion rejected the request (no), or a transient Notion failure persisted after retries (yes). |
 | `503` | `notion_error` | yes | Notion rate limit or `service_unavailable` persisted after retries. `Retry-After` when Notion sent one. |
 
-The codes `network` and `timeout` only occur on the client. Messages are safe for end users; Notion error details and stack traces go to `logger` only.
+The handler never answers `409`: a duplicate gets `200` with `duplicate: true`. The codes `network` and `timeout` only occur on the client. Messages are safe for end users; Notion error details and stack traces go to `logger` only.
 
 ## CORS
 
@@ -172,7 +185,7 @@ export const { POST, OPTIONS } = createFeedbackRouteHandlers({
 `POST` and `OPTIONS` share one handler instance. Behaviour:
 
 - Allowed origins get `Access-Control-Allow-Origin` (the origin itself, or `*` with `allowedOrigins: "*"`) and `Vary: Origin`.
-- `OPTIONS` answers `204` with `Access-Control-Allow-Methods: POST, OPTIONS`, the requested headers (or `content-type`), and `Access-Control-Max-Age: 86400`. Without `allowedOrigins`, `OPTIONS` answers `405`.
+- `OPTIONS` answers `204` with `Access-Control-Allow-Methods: POST, OPTIONS`, the requested headers (or `content-type, idempotency-key`), and `Access-Control-Max-Age: 86400`. Without `allowedOrigins`, `OPTIONS` answers `405`.
 - Entries in `allowedOrigins` are normalised to their origin, so `https://www.example.com/` works.
 
 With the plain handler, route both `POST` and `OPTIONS` to it.

@@ -168,6 +168,10 @@ export const nl = defineLocale({
     "pin.added": "Pin {number} toegevoegd",
     "pin.moved": "Pin {number} verplaatst",
     "pin.deleted": "Pin {number} verwijderd",
+    "pinNote.label": "Notitie bij pin {number}. Enter om op te slaan, Shift+Enter voor een nieuwe regel, Escape om te annuleren.",
+    "pinNote.placeholder": "Notitie toevoegen (optioneel)",
+    "pinNote.saved": "Notitie opgeslagen bij pin {number}",
+    "pinNote.removed": "Notitie verwijderd van pin {number}",
     "drawing.added": "Tekening toegevoegd",
     "drawing.moved": "Tekening verplaatst",
     "drawing.deleted": "Tekening verwijderd",
@@ -207,6 +211,10 @@ export const nl = defineLocale({
     "warning.taintedCanvas": {
       one: "# canvas kon niet worden vastgelegd omdat het cross-origin data bevat.",
       other: "# canvassen konden niet worden vastgelegd omdat ze cross-origin data bevatten.",
+    },
+    "warning.blankCanvas": {
+      one: "# canvas was leeg in de screenshot. WebGL-inhoud is na het tekenen vaak niet uit te lezen; schermopname kan helpen.",
+      other: "# canvassen waren leeg in de screenshot. WebGL-inhoud is na het tekenen vaak niet uit te lezen; schermopname kan helpen.",
     },
     "warning.video": {
       one: "# video komt mogelijk niet overeen met wat er werd afgespeeld.",
@@ -285,6 +293,10 @@ export const nl = defineLocale({
     warningTaintedCanvas: {
       one: "Een canvas met cross-origin data kon niet worden vastgelegd.",
       other: "# canvassen met cross-origin data konden niet worden vastgelegd.",
+    },
+    warningBlankCanvas: {
+      one: "# canvas was leeg in de screenshot. Als het op de pagina inhoud toont (bijvoorbeeld WebGL), legt schermopname die wel vast.",
+      other: "# canvassen waren leeg in de screenshot. Als ze op de pagina inhoud tonen (bijvoorbeeld WebGL), legt schermopname die wel vast.",
     },
     warningVideo: {
       one: "Een video kon niet of alleen als stilstaand beeld worden vastgelegd.",

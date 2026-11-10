@@ -78,6 +78,26 @@ function drawPin(ctx: Canvas2D, a: PinAnnotation, radius: number, scale: number)
   ctx.textBaseline = "middle";
   ctx.fillStyle = colorLuminance(a.color) > 0.6 ? "#111827" : "#ffffff";
   ctx.fillText(label, x, y + radius * 0.04);
+
+  if (a.note?.trim()) drawNoteBadge(ctx, a, radius);
+}
+
+/** Small speech-bubble style dot at the pin's top-right marking that it carries a note. */
+function drawNoteBadge(ctx: Canvas2D, a: PinAnnotation, radius: number): void {
+  const r = Math.max(4, radius * 0.36);
+  const cx = a.at.x + radius * 0.78;
+  const cy = a.at.y - radius * 0.78;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.lineWidth = Math.max(1, r * 0.35);
+  ctx.strokeStyle = a.color;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2);
+  ctx.fillStyle = a.color;
+  ctx.fill();
 }
 
 function strokeStyle(ctx: Canvas2D, a: Annotation): void {

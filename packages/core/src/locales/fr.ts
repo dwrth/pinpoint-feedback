@@ -170,6 +170,10 @@ export const fr = defineLocale({
     "pin.added": "Repère {number} ajouté",
     "pin.moved": "Repère {number} déplacé",
     "pin.deleted": "Repère {number} supprimé",
+    "pinNote.label": "Note du repère {number}. Entrée pour enregistrer, Maj+Entrée pour un saut de ligne, Échap pour annuler.",
+    "pinNote.placeholder": "Ajouter une note (facultatif)",
+    "pinNote.saved": "Note enregistrée pour le repère {number}",
+    "pinNote.removed": "Note supprimée du repère {number}",
     "drawing.added": "Dessin ajouté",
     "drawing.moved": "Dessin déplacé",
     "drawing.deleted": "Dessin supprimé",
@@ -211,6 +215,11 @@ export const fr = defineLocale({
       one: "# canvas n’a pas pu être capturé, car il contient des données d’une autre origine.",
       many: "# canvas n’ont pas pu être capturés, car ils contiennent des données d’autres origines.",
       other: "# canvas n’ont pas pu être capturés, car ils contiennent des données d’autres origines.",
+    },
+    "warning.blankCanvas": {
+      one: "# canvas est apparu vide dans la capture. Le contenu WebGL n’est souvent plus lisible une fois dessiné ; le partage d’écran peut aider.",
+      many: "# canvas sont apparus vides dans la capture. Le contenu WebGL n’est souvent plus lisible une fois dessiné ; le partage d’écran peut aider.",
+      other: "# canvas sont apparus vides dans la capture. Le contenu WebGL n’est souvent plus lisible une fois dessiné ; le partage d’écran peut aider.",
     },
     "warning.video": {
       one: "# vidéo peut ne pas correspondre à ce qui était en cours de lecture.",
@@ -298,6 +307,11 @@ export const fr = defineLocale({
       one: "# canvas contenant des données d’une autre origine n’a pas pu être capturé.",
       many: "# canvas contenant des données d’autres origines n’ont pas pu être capturés.",
       other: "# canvas contenant des données d’autres origines n’ont pas pu être capturés.",
+    },
+    warningBlankCanvas: {
+      one: "# canvas est apparu vide dans la capture. S’il affiche du contenu sur la page (par exemple WebGL), le partage d’écran permet de l’inclure.",
+      many: "# canvas sont apparus vides dans la capture. S’ils affichent du contenu sur la page (par exemple WebGL), le partage d’écran permet de l’inclure.",
+      other: "# canvas sont apparus vides dans la capture. S’ils affichent du contenu sur la page (par exemple WebGL), le partage d’écran permet de l’inclure.",
     },
     warningVideo: {
       one: "# vidéo n’a pas pu être capturée ou a été capturée sous forme d’image fixe.",

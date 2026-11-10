@@ -16,7 +16,7 @@ import {
 } from "@pinpoint-feedback/core";
 import type { BlockRequest } from "./client";
 import { NOTION_TEXT_MAX, richText, truncate, type RichTextItem } from "./rich-text";
-import type { PropertyField, ResolvedProperty, ResolvedSchema } from "./schema";
+import { pickStatusOption, type PropertyField, type ResolvedProperty, type ResolvedSchema } from "./schema";
 
 /** Labels of the built-in categories. */
 export const CATEGORY_LABELS = Object.fromEntries(DEFAULT_CATEGORIES.map((c) => [c.id, c.label])) as Record<
@@ -120,7 +120,7 @@ export function buildProperties(
 
   set("title", s.title);
   set("description", s.description ? truncate(s.description, options.descriptionPropertyMaxChars) : undefined);
-  set("status", options.statusDefault);
+  set("status", pickStatusOption(schema.properties.status, options.statusDefault));
   set("priority", PRIORITY_LABELS[s.priority]);
   set("category", categoryOf(s, options.categories ?? DEFAULT_CATEGORIES).label);
   set("websiteUrl", s.metadata.url);
@@ -175,6 +175,7 @@ const WARNING_KEYS = {
   "cross-origin-iframe": "warningCrossOriginIframe",
   "cross-origin-image": "warningCrossOriginImage",
   "tainted-canvas": "warningTaintedCanvas",
+  "blank-canvas": "warningBlankCanvas",
   video: "warningVideo",
   font: "warningFont",
   downscaled: "warningDownscaled",

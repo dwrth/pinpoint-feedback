@@ -111,6 +111,13 @@ export interface ResolvedProperty {
   kind: ValueKind;
   /** Option names for select/status properties. */
   options?: string[];
+  /** Option groups of a status property, with their option names in Notion's order. */
+  groups?: StatusGroup[];
+}
+
+export interface StatusGroup {
+  name: string;
+  options: string[];
 }
 
 export interface ResolvedSchema {
@@ -134,6 +141,16 @@ interface RawOption {
 interface RawProperty {
   type: string;
   options?: RawOption[];
+  groups?: Array<{ name: string; optionIds: string[] }>;
+}
+
+function readGroups(cfg: Obj): RawProperty["groups"] {
+  if (!Array.isArray(cfg.groups)) return undefined;
+  return cfg.groups.flatMap((g) =>
+    isObj(g) && typeof g.name === "string"
+      ? [{ name: g.name, optionIds: Array.isArray(g.option_ids) ? g.option_ids.filter((id): id is string => typeof id === "string") : [] }]
+      : [],
+  );
 }
 
 function readProperties(value: unknown): Record<string, RawProperty> {
@@ -147,12 +164,39 @@ function readProperties(value: unknown): Record<string, RawProperty> {
           isObj(o) && typeof o.name === "string" ? [{ name: o.name, ...(typeof o.id === "string" ? { id: o.id } : {}) }] : [],
         )
       : undefined;
-    out[name] = { type: prop.type, options: opts };
+    const groups = prop.type === "status" && isObj(cfg) ? readGroups(cfg) : undefined;
+    out[name] = { type: prop.type, options: opts, ...(groups ? { groups } : {}) };
   }
   return out;
 }
 
 const SELECT_TYPES = ["select", "multi_select"];
+
+function resolveGroups(prop: RawProperty): StatusGroup[] {
+  const byId = new Map(prop.options?.flatMap((o) => (o.id ? [[o.id, o.name] as const] : [])));
+  return (prop.groups ?? []).map((g) => ({
+    name: g.name,
+    options: g.optionIds.flatMap((id) => {
+      const name = byId.get(id);
+      return name === undefined ? [] : [name];
+    }),
+  }));
+}
+
+const isToDoGroup = (name: string) => name.toLowerCase().replace(/[^a-z]/g, "") === "todo";
+
+/**
+ * Status value written to new pages: `preferred` when the property can hold it, otherwise (for a Notion
+ * status property) the first option of its To-do group, which Notion always lists first. Undefined when
+ * neither exists; options are never created.
+ */
+export function pickStatusOption(prop: ResolvedProperty | undefined, preferred: string): string | undefined {
+  if (!prop) return undefined;
+  if (prop.type !== "status") return preferred || undefined;
+  if (preferred && prop.options?.includes(preferred)) return preferred;
+  const toDo = prop.groups?.find((g) => isToDoGroup(g.name)) ?? prop.groups?.[0];
+  return toDo?.options[0];
+}
 
 export interface SchemaLogger {
   info(...args: unknown[]): void;
@@ -292,7 +336,13 @@ export async function resolveSchema(args: {
       skipped.push(field);
       continue;
     }
-    properties[field] = { name, type: prop.type, kind: spec.kind, options: prop.options?.map((o) => o.name) };
+    properties[field] = {
+      name,
+      type: prop.type,
+      kind: spec.kind,
+      options: prop.options?.map((o) => o.name),
+      ...(prop.groups ? { groups: resolveGroups(prop) } : {}),
+    };
   }
 
   if (!properties.submissionId) {

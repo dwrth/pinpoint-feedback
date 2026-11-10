@@ -36,6 +36,7 @@ Content that DOM rasterisation can't reproduce is **never silently dropped**. Ea
 | --- | --- | --- | --- |
 | Cross-origin or otherwise unreadable `<iframe>` (embedded video, maps, payment forms, third-party widgets) | iframe whose document can't be read | "Cross-origin iframe — content not captured" | `cross-origin-iframe` |
 | Tainted `<canvas>` (drew cross-origin data) | `toDataURL()` throws `SecurityError` | "Protected canvas — content not captured" | `tainted-canvas` |
+| Blank `<canvas>` (typically WebGL without `preserveDrawingBuffer`) | readable canvas with a nonzero size whose sampled pixels are all transparent | left as is (no placeholder: it may really be empty) | `blank-canvas` |
 | `<video>` | any visible video | current frame or poster if it can be drawn, otherwise "Video — frame not captured" | `video` |
 | `<object>` / `<embed>` | any visible one | "Embedded object — content not captured" | `unknown` |
 | Image that failed to load (no CORS headers, unreachable, timed out) | fetch failed | hatched image | `cross-origin-image`, or `unknown` for same-origin |
@@ -43,7 +44,9 @@ Content that DOM rasterisation can't reproduce is **never silently dropped**. Ea
 
 Same-origin iframes are rendered normally. Only content intersecting the viewport is scanned; elements with `display: none` are skipped. The scan descends into open shadow roots.
 
-Not detected: WebGL canvases without `preserveDrawingBuffer` may render blank without a warning, and closed shadow roots are not inspected.
+WebGL canvases are detected heuristically. A WebGL canvas created without `preserveDrawingBuffer` usually reads back as fully transparent once the browser has composited it, so the screenshot shows nothing where the page shows a 3D view or chart. To find these, each visible, non-excluded, untainted canvas is drawn onto a small scratch 2D canvas (at most 64 × 64) and its pixels are checked. If every sampled pixel is transparent, a `blank-canvas` warning is added. The page canvas's `getContext` is never called, because that could create a context the host app doesn't expect. A canvas that really is empty triggers the same warning, and very sparse content can be lost in the downsampling, so treat the warning as a hint. Screen capture includes WebGL content.
+
+Not detected: closed shadow roots are not inspected.
 
 Warnings are:
 
@@ -85,7 +88,36 @@ On submit, the client checks the original and the annotated screenshot against i
 3. If that is not enough, the image is downscaled step by step at quality 0.75 until it fits.
 4. If no encoding fits (or the longer side would drop below 64 px), the submission fails with `payload_too_large`.
 
-This happens silently: it does not add a capture warning. The server separately rejects any file over its own `maxFileBytes` (default 5 MB). The default widget client always uses 5 MB; to send larger files to a paid workspace, raise the server's `maxFileBytes` and pass a `client` created with `createFeedbackClient({ endpoint, maxFileBytes })`. See [Server](server.md).
+This happens silently: it does not add a capture warning. The server separately rejects any file over its own `maxFileBytes` (default 5 MB) with `413 payload_too_large` and `details: { maxFileBytes, field }`.
+
+If the server's limit is lower than the client's, the client recovers. When a send fails with `payload_too_large` and `details.maxFileBytes` is smaller than the largest file it sent, the client:
+
+1. lowers its own limit to the server's for the rest of its lifetime,
+2. re-fits both images to that limit and updates the outbox entry,
+3. resends once with the same `submissionId`.
+
+If that also fails, the failure is final as usual. This applies to `submit()` and to outbox retries (`retryPending()`).
+
+### Larger screenshots on paid workspaces
+
+Paid Notion workspaces accept 20 MB per file. To use that, raise **both** limits: the handler's `maxFileBytes` and the widget's `maxFileBytes` prop. Raising only the server has no effect, because the widget still shrinks images to 5 MB. Raising only the widget makes each oversized upload fail once and get re-fitted to the server's limit. Keep the value in one shared constant:
+
+```ts
+// feedback.config.ts
+export const maxFileBytes = 20 * 1024 * 1024;
+```
+
+```tsx
+// app/layout.tsx
+<FeedbackProvider categories={categories} maxFileBytes={maxFileBytes} />
+```
+
+```ts
+// app/api/feedback/route.ts
+export const POST = createFeedbackHandler({ categories, maxFileBytes });
+```
+
+With a custom `client`, pass `maxFileBytes` to `createFeedbackClient({ endpoint, maxFileBytes })` instead; the widget prop is ignored then. See [Server](server.md).
 
 Capturers also accept a `maxPixels` option that caps `width × height` at capture time and adds a `downscaled` warning when it applies. The widget does not set it.
 

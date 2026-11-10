@@ -21,18 +21,32 @@ The editor never modifies the input image. Two images come out of an editing ses
 
 | Tool | Interaction |
 | --- | --- |
-| `select` | Click an annotation to select it, drag it to move it (3 px threshold). Click empty space to deselect; dragging there pans. Double-click a text annotation to edit it. Hit tolerance is 6 CSS px for mouse/pen, 12 for touch. |
-| `pin` | Click inside the screenshot to drop a numbered pin. Numbers are 1-based in creation order and renumbered whenever pins are removed, so they stay sequential. |
+| `select` | Click an annotation to select it, drag it to move it (3 px threshold). Click empty space to deselect; dragging there pans. Double-click a text annotation to edit it, or a pin to edit its [note](#pin-notes). Hit tolerance is 6 CSS px for mouse/pen, 12 for touch. |
+| `pin` | Click inside the screenshot to drop a numbered pin, then optionally type a [note](#pin-notes). Clicking an existing pin edits its note instead of stacking a new pin. Numbers are 1-based in creation order and renumbered whenever pins are removed, so they stay sequential. |
 | `arrow` | Drag from tail to head. **Shift** snaps the angle to 45° steps. Arrows shorter than 4 screen px are discarded. |
 | `rectangle` | Drag a box. **Shift** constrains it to a square. Boxes narrower or shorter than 4 screen px are discarded. |
 | `freehand` | Drag to draw. Coalesced pointer events are sampled; the path is simplified when the stroke ends. |
 | `text` | Click to open a text box; click an existing text annotation to edit it. **Enter** commits, **Shift+Enter** adds a line, **Escape** cancels, blur commits. Clearing an existing text deletes it. |
+
+With any tool, double-clicking a pin edits its note.
 
 Drawn points are clamped to the screenshot bounds. With the `pin` or `text` tool, clicking while a text box is open only commits the text; it doesn't also place a pin or open a new box.
 
 New text is sized from the image width and the current stroke width (`textSizeFor(imageWidth, strokeWidth)`). Pin radius isn't stored: renderers derive it from the image width (`pinRadiusFor(imageWidth)` = `max(14, round(width / 90))`), so pins stay legible on high-DPI captures.
 
 `setColor()` and `setStrokeWidth()` set the style for new annotations. With an annotation selected they also restyle it (undoable); stroke width isn't applied to pins or text. While a text box is open, `setColor()` recolors the text being typed.
+
+## Pin notes
+
+Each pin can carry a short note (`PinAnnotation.note`, up to 1,000 characters). The Notion page lists it next to the pin number.
+
+- **After placing a pin** a compact note box opens next to it, already focused. Type the note and press **Enter** to save it; **Shift+Enter** adds a line. **Escape** closes the box without a note (the pin stays), and so does leaving it empty. Clicking elsewhere saves what was typed; with the `pin` tool that click also places the next pin, so pins can still be dropped in quick succession. **Mod+Z** in an untouched note box removes the pin again.
+- **Editing an existing note**: double-click the pin (any tool), click it with the `pin` tool, or select it with the `select` tool and press **Enter**. Clearing the text removes the note.
+- **Undo**: saving, changing or removing a note is its own undo step, separate from placing the pin.
+- **Indicator**: pins with a note get a small badge at their top-right, on screen and in the annotated export.
+- **Disable the prompt** with `pinNotes: false`. Notes can then still be added by double-click or **Enter**.
+
+The note box is a `<textarea>` labelled with `pinNote.label` ("Note for pin 2. Enter to save, …") and the `pinNote.placeholder` placeholder. It doesn't scale with zoom and stays next to the pin while the view moves. While it's open, `state.editingText` is `true`.
 
 ## Zoom and pan
 
@@ -61,6 +75,7 @@ Editor shortcuts apply while the editor element has focus (it's focusable and ta
 | `Mod+Z` | Undo |
 | `Mod+Shift+Z`, `Mod+Y` | Redo |
 | `Delete`, `Backspace` | Delete the selected annotation |
+| `Enter` | Edit the note of the selected pin |
 | `Escape` | Cancel the in-progress drag/draw, otherwise deselect |
 | `+` / `=` | Zoom in |
 | `-` / `_` | Zoom out |
@@ -84,7 +99,7 @@ In the widget, `Escape` that the editor didn't consume (nothing to cancel or des
 
 ## Undo, redo, clear, reset
 
-History is snapshot-based (`AnnotationHistory`, 200 steps). Every change to the annotation list is one undo step: add, move, delete, text edit, restyle of a selected annotation, `setAnnotations()` and `clear()`. A new change clears the redo stack. `undo()`/`redo()` commit any open text box first.
+History is snapshot-based (`AnnotationHistory`, 200 steps). Every change to the annotation list is one undo step: add, move, delete, text edit, pin note edit, restyle of a selected annotation, `setAnnotations()` and `clear()`. A new change clears the redo stack. `undo()`/`redo()` commit any open text box first.
 
 | Method | Annotations | History | View |
 | --- | --- | --- | --- |
@@ -144,6 +159,7 @@ The editor appends one element (`.pinpoint-annotation-editor`) that fills the co
 | `onStateChange` | `(state) => void` | – | Same as `subscribe()`. |
 | `messages` | `EditorMessages` | `en.editor` | Accessible labels and screen-reader announcements. Use the `editor` section of any locale bundle. |
 | `locale` | `string` | `"en"` | BCP 47 tag for number formatting in announcements (zoom percent). |
+| `pinNotes` | `boolean` | `true` | Open the note box after placing a pin. Notes stay editable by double-click or **Enter** when `false`. See [Pin notes](#pin-notes). |
 
 ### Methods
 
@@ -175,7 +191,7 @@ The editor appends one element (`.pinpoint-annotation-editor`) that fills the co
 | `canUndo`, `canRedo` | History availability. |
 | `annotationCount` | Number of annotations. |
 | `selectedId` | Id of the selected annotation, if any. |
-| `editingText` | `true` while a text box is open. Use it to suspend your own single-key shortcuts. |
+| `editingText` | `true` while a text box or a pin note box is open. Use it to suspend your own single-key shortcuts. |
 
 ## Data model
 
@@ -224,7 +240,7 @@ interface TextAnnotation extends AnnotationBase {
 type Annotation = PinAnnotation | FreehandAnnotation | ArrowAnnotation | RectangleAnnotation | TextAnnotation;
 ```
 
-`PinAnnotation.note` is part of the data model and is listed next to the pin on the Notion page, but neither the editor nor the widget has UI for entering it. Set it through `initialAnnotations` or `setAnnotations()` if you build your own UI.
+`PinAnnotation.note` is entered in the editor's [note box](#pin-notes) and listed next to the pin on the Notion page. It can also be set through `initialAnnotations` or `setAnnotations()`.
 
 Geometry helpers used by the editor are exported for custom UIs and renderers: `screenToImage`, `imageToScreen`, `normalizeRect`, `normalizeRectangle`, `simplifyPath`, `renumberPins`, `nextPinNumber`, `cloneAnnotation(s)`, `translateAnnotation`, `annotationBounds`, `hitTestAnnotation` (alias `hitTest`), `findAnnotationAt`, `computeFitZoom`, `fitView`, `resolveZoomLimits`, `clampZoom`, `zoomAround`, `clampPan`.
 
@@ -269,9 +285,9 @@ createAnnotationEditor({ container, image, renderer });
 ## Accessibility
 
 - The editor element has `role="application"`, is focusable (`tabindex="0"`) and is labelled by `editor.label`, which tells users to pick a tool from the toolbar. The canvas is `aria-hidden`.
-- A visually hidden `role="status"` / `aria-live="polite"` region announces changes: added, moved, updated and deleted annotations per type (pins with their number), undo/redo, clear, reset, zoom level (from the zoom keys and `zoomIn()`/`zoomOut()`) and fit (from the `0` key). Repeating the same message still re-announces it.
-- The text box is a real `<textarea>` with its own label (`textInput.label`) and `dir="auto"`.
+- A visually hidden `role="status"` / `aria-live="polite"` region announces changes: added, moved, updated and deleted annotations per type (pins with their number), saved and removed pin notes, undo/redo, clear, reset, zoom level (from the zoom keys and `zoomIn()`/`zoomOut()`) and fit (from the `0` key). Repeating the same message still re-announces it.
+- The text box and the pin note box are real `<textarea>` elements with their own labels (`textInput.label`, `pinNote.label`) and `dir="auto"`.
 - The editor element is forced to `direction: ltr`, so screenshots and coordinates never mirror in RTL layouts.
-- Placing, selecting and moving annotations needs a pointer. Undo, redo, zoom, fit and, in the widget, tool switching work from the keyboard.
+- Placing, selecting and moving annotations needs a pointer. Pin notes can be edited from the keyboard (**Enter** on a selected pin). Undo, redo, zoom, fit and, in the widget, tool switching work from the keyboard.
 
 Announcement texts are the `editor` section of a locale bundle; see [i18n](i18n.md).

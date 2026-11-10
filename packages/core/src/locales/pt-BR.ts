@@ -170,6 +170,10 @@ export const ptBR = defineLocale({
     "pin.added": "Marcador {number} adicionado",
     "pin.moved": "Marcador {number} movido",
     "pin.deleted": "Marcador {number} excluído",
+    "pinNote.label": "Nota do marcador {number}. Enter para salvar, Shift+Enter para uma nova linha, Esc para cancelar.",
+    "pinNote.placeholder": "Adicionar uma nota (opcional)",
+    "pinNote.saved": "Nota salva no marcador {number}",
+    "pinNote.removed": "Nota removida do marcador {number}",
     "drawing.added": "Desenho adicionado",
     "drawing.moved": "Desenho movido",
     "drawing.deleted": "Desenho excluído",
@@ -211,6 +215,11 @@ export const ptBR = defineLocale({
       one: "Não foi possível capturar # canvas porque ele contém dados de outra origem.",
       many: "Não foi possível capturar # canvas porque eles contêm dados de outra origem.",
       other: "Não foi possível capturar # canvas porque eles contêm dados de outra origem.",
+    },
+    "warning.blankCanvas": {
+      one: "# canvas apareceu vazio na captura. O conteúdo WebGL muitas vezes não pode ser lido depois de desenhado; a captura de tela pode ajudar.",
+      many: "# canvas apareceram vazios na captura. O conteúdo WebGL muitas vezes não pode ser lido depois de desenhado; a captura de tela pode ajudar.",
+      other: "# canvas apareceram vazios na captura. O conteúdo WebGL muitas vezes não pode ser lido depois de desenhado; a captura de tela pode ajudar.",
     },
     "warning.video": {
       one: "# vídeo pode não corresponder ao que estava sendo reproduzido.",
@@ -297,6 +306,11 @@ export const ptBR = defineLocale({
       one: "Não foi possível capturar um canvas com dados de outra origem.",
       many: "Não foi possível capturar # canvas com dados de outra origem.",
       other: "Não foi possível capturar # canvas com dados de outra origem.",
+    },
+    warningBlankCanvas: {
+      one: "# canvas apareceu vazio na captura. Se ele mostra conteúdo na página (por exemplo, WebGL), a captura de tela permite incluí-lo.",
+      many: "# canvas apareceram vazios na captura. Se eles mostram conteúdo na página (por exemplo, WebGL), a captura de tela permite incluí-lo.",
+      other: "# canvas apareceram vazios na captura. Se eles mostram conteúdo na página (por exemplo, WebGL), a captura de tela permite incluí-lo.",
     },
     warningVideo: {
       one: "Um vídeo não pôde ser capturado ou foi capturado como imagem estática.",

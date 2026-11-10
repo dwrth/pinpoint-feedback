@@ -23,7 +23,7 @@ import {
   type NotionRetryOptions,
   type NotionThrottleOptions,
 } from "./reliability";
-import { DEFAULT_PROPERTY_NAMES, resolveSchema, type NotionPropertyNames, type ResolvedSchema } from "./schema";
+import { DEFAULT_PROPERTY_NAMES, pickStatusOption, resolveSchema, type NotionPropertyNames, type ResolvedSchema } from "./schema";
 import { NotionFileUploader } from "./uploader";
 
 export interface NotionBackendOptions {
@@ -57,7 +57,7 @@ export interface NotionBackendOptions {
   timeoutMs?: number;
   /** Characters of the description kept in the Description property; the page body always has the full text. Default 2000. */
   descriptionPropertyMaxChars?: number;
-  /** Overrides the project written to the Project property. */
+  /** Server project ID written to the Project property. The server value wins; the submission's `projectId` is used only when this is unset. */
   projectId?: string;
   throttle?: NotionThrottleOptions;
   retry?: NotionRetryOptions;
@@ -87,6 +87,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
   private readonly uploader: FileUploader;
   private readonly logger: Pick<Console, "info" | "warn" | "error">;
   private schemaPromise?: Promise<ResolvedSchema>;
+  private loggedStatus?: string;
 
   constructor(options: NotionBackendOptions) {
     if (!options.client && !options.apiKey) throw new TypeError("NotionFeedbackBackend requires an apiKey.");
@@ -121,13 +122,36 @@ export class NotionFeedbackBackend implements FeedbackBackend {
         logger: this.logger,
         categories: this.categories,
         call: (fn) => this.call(fn),
-      }).catch((error: unknown) => {
+      }).then((schema) => {
+        this.logStatusChoice(schema);
+        return schema;
+      }, (error: unknown) => {
         if (this.schemaPromise === promise) this.schemaPromise = undefined;
         throw toNotionBackendError(error);
       });
       this.schemaPromise = promise;
     }
     return this.schemaPromise;
+  }
+
+  private logStatusChoice(schema: ResolvedSchema): void {
+    const prop = schema.properties.status;
+    if (!prop) return;
+    const chosen = pickStatusOption(prop, this.statusDefault);
+    const key = `${prop.name}\u0000${chosen ?? ""}`;
+    if (this.loggedStatus === key) return;
+    this.loggedStatus = key;
+    if (chosen === undefined) {
+      this.logger.warn(
+        `[pinpoint] Notion status property "${prop.name}" has no option "${this.statusDefault}" and no To-do group option; new reports are saved without a status. Set notion.statusDefault to one of its options.`,
+      );
+    } else if (chosen !== this.statusDefault) {
+      this.logger.info(
+        `[pinpoint] Notion status property "${prop.name}" has no option "${this.statusDefault}"; new reports get "${chosen}", the first option of its To-do group.`,
+      );
+    } else {
+      this.logger.info(`[pinpoint] New reports get ${prop.name} "${chosen}".`);
+    }
   }
 
   async findBySubmissionId(submissionId: string): Promise<FeedbackRecord | undefined> {

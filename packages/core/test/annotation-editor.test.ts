@@ -548,3 +548,144 @@ describe("createAnnotationEditor: export and lifecycle", () => {
     expect(editor.getState().zoom).toBe(1);
   });
 });
+
+describe("createAnnotationEditor: pin notes", () => {
+  const live = (wrapper: HTMLElement) => wrapper.querySelector("[aria-live]")!.textContent;
+  const noteInput = (wrapper: HTMLElement) => wrapper.querySelector("textarea");
+
+  it("prompts for a note after placing a pin; Enter saves it as a separate undo step", async () => {
+    const { editor, wrapper } = await setup();
+    click(wrapper, 100, 50);
+    const ta = noteInput(wrapper)!;
+    expect(ta).not.toBeNull();
+    expect(ta.getAttribute("aria-label")).toMatch(/^Note for pin 1\./);
+    expect(ta.placeholder).toBe("Add a note (optional)");
+    expect(editor.getState().editingText).toBe(true);
+    expect(parseFloat(ta.style.left)).toBeGreaterThan(100);
+
+    ta.value = "Broken\nlayout  ";
+    key(ta, "Enter", { shiftKey: true });
+    expect(noteInput(wrapper)).not.toBeNull();
+    key(ta, "Enter");
+    expect(noteInput(wrapper)).toBeNull();
+    expect(editor.getState().editingText).toBe(false);
+    expect((editor.getAnnotations()[0] as PinAnnotation).note).toBe("Broken\nlayout");
+    expect(live(wrapper)).toContain("Note saved for pin 1");
+
+    editor.undo();
+    const pin = editor.getAnnotations()[0] as PinAnnotation;
+    expect(pin).toBeDefined();
+    expect("note" in pin).toBe(false);
+    editor.redo();
+    expect((editor.getAnnotations()[0] as PinAnnotation).note).toBe("Broken\nlayout");
+  });
+
+  it("Escape and empty blur keep the pin without a note", async () => {
+    const { editor, wrapper } = await setup();
+    click(wrapper, 100, 50);
+    const ta = noteInput(wrapper)!;
+    ta.value = "discard me";
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    ta.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(noteInput(wrapper)).toBeNull();
+    expect(editor.getAnnotations()).toHaveLength(1);
+    expect((editor.getAnnotations()[0] as PinAnnotation).note).toBeUndefined();
+
+    click(wrapper, 300, 50);
+    noteInput(wrapper)!.dispatchEvent(new FocusEvent("blur"));
+    expect(noteInput(wrapper)).toBeNull();
+    expect(editor.getAnnotations()).toHaveLength(2);
+    expect(editor.getState().canUndo).toBe(true);
+    editor.undo();
+    expect(editor.getAnnotations()).toHaveLength(1);
+  });
+
+  it("clicking elsewhere with the pin tool commits the note and places the next pin", async () => {
+    const { editor, wrapper } = await setup();
+    click(wrapper, 100, 50);
+    noteInput(wrapper)!.value = "first";
+    click(wrapper, 300, 150);
+    const pins = editor.getAnnotations() as PinAnnotation[];
+    expect(pins.map((p) => [p.number, p.note])).toEqual([
+      [1, "first"],
+      [2, undefined],
+    ]);
+    expect(noteInput(wrapper)!.getAttribute("aria-label")).toMatch(/pin 2/);
+  });
+
+  it("Mod+Z in an untouched note undoes the pin", async () => {
+    const { editor, wrapper } = await setup();
+    click(wrapper, 100, 50);
+    key(noteInput(wrapper)!, "z", { ctrlKey: true });
+    expect(noteInput(wrapper)).toBeNull();
+    expect(editor.getAnnotations()).toHaveLength(0);
+  });
+
+  it("does not prompt when pinNotes is false; double-click and Enter edit notes", async () => {
+    const { editor, wrapper } = await setup({ pinNotes: false });
+    click(wrapper, 100, 50);
+    expect(noteInput(wrapper)).toBeNull();
+
+    editor.setTool("select");
+    click(wrapper, 100, 50);
+    expect(editor.getState().selectedId).toBeDefined();
+    key(wrapper, "Enter");
+    let ta = noteInput(wrapper)!;
+    ta.value = "via enter";
+    key(ta, "Enter");
+    expect((editor.getAnnotations()[0] as PinAnnotation).note).toBe("via enter");
+
+    const later = Date.now() + 1000;
+    const now = vi.spyOn(Date, "now").mockReturnValue(later);
+    click(wrapper, 100, 50);
+    click(wrapper, 100, 50);
+    now.mockRestore();
+    ta = noteInput(wrapper)!;
+    expect(ta.value).toBe("via enter");
+    ta.value = "   ";
+    key(ta, "Enter");
+    expect("note" in (editor.getAnnotations()[0] as PinAnnotation)).toBe(false);
+    expect(live(wrapper)).toContain("Note removed from pin 1");
+  });
+
+  it.each(["arrow", "freehand", "rectangle", "text"] as const)("double-clicking a pin with the %s tool edits its note", async (tool) => {
+    const { editor, wrapper } = await setup({
+      pinNotes: false,
+      initialAnnotations: [{ id: "p", type: "pin", color: "#ef4444", strokeWidth: 4, at: { x: 200, y: 100 }, number: 1 }],
+    });
+    editor.setTool(tool);
+    click(wrapper, 100, 50);
+    click(wrapper, 100, 50);
+    const ta = noteInput(wrapper)!;
+    expect(ta.getAttribute("aria-label")).toMatch(/pin 1/);
+    ta.value = "noted";
+    key(ta, "Enter");
+    expect(editor.getAnnotations()).toEqual([expect.objectContaining({ id: "p", note: "noted" })]);
+  });
+
+  it("clicking an existing pin with the pin tool edits its note instead of stacking a pin", async () => {
+    const { editor, wrapper } = await setup({
+      initialAnnotations: [{ id: "p", type: "pin", color: "#ef4444", strokeWidth: 4, at: { x: 200, y: 100 }, number: 1, note: "old" }],
+    });
+    click(wrapper, 100, 50);
+    expect(editor.getAnnotations()).toHaveLength(1);
+    expect(noteInput(wrapper)!.value).toBe("old");
+  });
+
+  it("draws a note badge only on pins with a note", async () => {
+    const arcsFor = async (note?: string) => {
+      contexts = [];
+      const { editor: ed } = await setup({
+        initialAnnotations: [{ id: "p", type: "pin", color: "#ef4444", strokeWidth: 4, at: { x: 10, y: 10 }, number: 1, ...(note ? { note } : {}) }],
+      });
+      await ed.exportAnnotated();
+      const count = contexts.at(-1)!.named("arc").length;
+      ed.destroy();
+      return count;
+    };
+    const without = await arcsFor();
+    const withNote = await arcsFor("hello");
+    expect(withNote).toBe(without + 2);
+  });
+});

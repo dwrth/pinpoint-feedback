@@ -13,6 +13,7 @@ import {
 } from "../src/capture/index";
 import { enCapture, type CaptureMessages } from "../src/i18n/capture";
 import { enEditor, type EditorMessages } from "../src/i18n/editor";
+import de from "../src/locales/de";
 import type { AnnotationEditor } from "../src/interfaces";
 import { createRecordingContext } from "./annotation-helpers";
 
@@ -36,6 +37,7 @@ const noLimitations = {
   crossOriginIframes: [],
   embeddedObjects: [],
   taintedCanvases: [],
+  blankCanvases: [],
   videos: [],
   stickyElements: [],
   images: [],
@@ -53,6 +55,8 @@ describe("capture warnings", () => {
     );
     expect(formatCaptureWarning({ code: "unknown" })).toBe(enCapture["warning.unknownGeneric"]);
     expect(formatCaptureWarning({ code: "font" })).toBe(enCapture["warning.font"]);
+    expect(formatCaptureWarning({ code: "blank-canvas", count: 2 })).toMatch(/^2 canvases appeared empty/);
+    expect(formatCaptureWarning({ code: "blank-canvas", count: 1 }, { messages: de.capture, locale: "de" })).toMatch(/^1 Canvas-Element war/);
   });
 
   it("builds warning messages in the requested locale", () => {

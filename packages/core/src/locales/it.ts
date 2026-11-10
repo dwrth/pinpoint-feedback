@@ -168,6 +168,10 @@ export const it = defineLocale({
     "pin.added": "Segnaposto {number} aggiunto",
     "pin.moved": "Segnaposto {number} spostato",
     "pin.deleted": "Segnaposto {number} eliminato",
+    "pinNote.label": "Nota del segnaposto {number}. Invio per salvare, Maiusc+Invio per andare a capo, Esc per annullare.",
+    "pinNote.placeholder": "Aggiungi una nota (facoltativa)",
+    "pinNote.saved": "Nota salvata per il segnaposto {number}",
+    "pinNote.removed": "Nota rimossa dal segnaposto {number}",
     "drawing.added": "Disegno aggiunto",
     "drawing.moved": "Disegno spostato",
     "drawing.deleted": "Disegno eliminato",
@@ -209,6 +213,11 @@ export const it = defineLocale({
       one: "# canvas non è stato acquisito perché contiene dati di un’altra origine.",
       many: "# canvas non sono stati acquisiti perché contengono dati di altre origini.",
       other: "# canvas non sono stati acquisiti perché contengono dati di altre origini.",
+    },
+    "warning.blankCanvas": {
+      one: "# canvas è risultato vuoto nello screenshot. Spesso il contenuto WebGL non è leggibile dopo essere stato disegnato; la condivisione schermo può aiutare.",
+      many: "# canvas sono risultati vuoti nello screenshot. Spesso il contenuto WebGL non è leggibile dopo essere stato disegnato; la condivisione schermo può aiutare.",
+      other: "# canvas sono risultati vuoti nello screenshot. Spesso il contenuto WebGL non è leggibile dopo essere stato disegnato; la condivisione schermo può aiutare.",
     },
     "warning.video": {
       one: "# video potrebbe non corrispondere a ciò che era in riproduzione.",
@@ -295,6 +304,11 @@ export const it = defineLocale({
       one: "Un canvas con dati di un’altra origine non è stato acquisito.",
       many: "# canvas con dati di altre origini non sono stati acquisiti.",
       other: "# canvas con dati di altre origini non sono stati acquisiti.",
+    },
+    warningBlankCanvas: {
+      one: "# canvas è risultato vuoto nello screenshot. Se mostra contenuti nella pagina (ad esempio WebGL), la condivisione schermo permette di includerli.",
+      many: "# canvas sono risultati vuoti nello screenshot. Se mostrano contenuti nella pagina (ad esempio WebGL), la condivisione schermo permette di includerli.",
+      other: "# canvas sono risultati vuoti nello screenshot. Se mostrano contenuti nella pagina (ad esempio WebGL), la condivisione schermo permette di includerli.",
     },
     warningVideo: {
       one: "Un video non è stato acquisito o è stato acquisito come immagine statica.",

@@ -80,6 +80,7 @@ export function Widget({
   defaultPriority = "medium",
   capturer,
   client,
+  maxFileBytes,
   metadata,
   onSubmitted,
   onError,
@@ -105,11 +106,11 @@ export function Widget({
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
-  const latest = useRef({ client, endpoint, capturer, metadata, onError, defaultCategory, defaultPriority, categories, bundle });
-  latest.current = { client, endpoint, capturer, metadata, onError, defaultCategory, defaultPriority, categories, bundle };
+  const latest = useRef({ client, endpoint, maxFileBytes, capturer, metadata, onError, defaultCategory, defaultPriority, categories, bundle });
+  latest.current = { client, endpoint, maxFileBytes, capturer, metadata, onError, defaultCategory, defaultPriority, categories, bundle };
 
   const getClient = useCallback(
-    (): FeedbackClient => latest.current.client ?? getDefaultClient(latest.current.endpoint),
+    (): FeedbackClient => latest.current.client ?? getDefaultClient(latest.current.endpoint, latest.current.maxFileBytes),
     [],
   );
 
@@ -142,7 +143,7 @@ export function Widget({
     const onOnline = () => void retryPending(true);
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [retryPending, client, endpoint]);
+  }, [retryPending, client, endpoint, maxFileBytes]);
 
   const capture = useCallback(async (useDisplayMedia: boolean) => {
     if (busyRef.current) return;

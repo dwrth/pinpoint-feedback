@@ -87,6 +87,95 @@ describe("NotionFeedbackBackend", () => {
     expect(fake.pages[0]!.properties.Status).toBeUndefined();
   });
 
+  it("falls back to the first To-do option of a status property and logs the choice once", async () => {
+    const fake = new FakeNotion();
+    fake.schema.Status = {
+      id: "s",
+      name: "Status",
+      type: "status",
+      status: {
+        options: [
+          { id: "o1", name: "In progress" },
+          { id: "o2", name: "Done" },
+          { id: "o3", name: "Backlog" },
+          { id: "o4", name: "Not started" },
+        ],
+        groups: [
+          { id: "g1", name: "To-do", option_ids: ["o3", "o4"] },
+          { id: "g2", name: "In progress", option_ids: ["o1"] },
+          { id: "g3", name: "Complete", option_ids: ["o2"] },
+        ],
+      },
+    };
+    const info = vi.fn();
+    const backend = makeBackend(fake, { logger: { ...silentLogger, info } });
+    await backend.createRecord({ submission: makeSubmission() });
+    await backend.createRecord({ submission: makeSubmission() });
+    expect(fake.pages.map((p) => p.properties.Status)).toEqual([{ status: { name: "Backlog" } }, { status: { name: "Backlog" } }]);
+    expect(fake.count("dataSources.update")).toBe(1);
+    expect(fake.calls.find((c) => c.method === "dataSources.update")!.args.properties.Status).toBeUndefined();
+    const statusLogs = info.mock.calls.filter(([m]) => String(m).includes('"Backlog"'));
+    expect(statusLogs).toHaveLength(1);
+    expect(statusLogs[0]![0]).toContain("To-do");
+  });
+
+  it("prefers statusDefault over the To-do group when it is an option", async () => {
+    const fake = new FakeNotion();
+    fake.schema.Status = {
+      id: "s",
+      name: "Status",
+      type: "status",
+      status: {
+        options: [{ id: "o1", name: "Not started" }, { id: "o2", name: "Triage" }],
+        groups: [{ id: "g1", name: "To-do", option_ids: ["o1", "o2"] }],
+      },
+    };
+    await makeBackend(fake, { statusDefault: "Triage" }).createRecord({ submission: makeSubmission() });
+    expect(fake.pages[0]!.properties.Status).toEqual({ status: { name: "Triage" } });
+  });
+
+  it("uses the first status group when no group is named To-do", async () => {
+    const fake = new FakeNotion();
+    fake.schema.Status = {
+      id: "s",
+      name: "Status",
+      type: "status",
+      status: {
+        options: [{ id: "o1", name: "Erledigt" }, { id: "o2", name: "Nicht begonnen" }],
+        groups: [{ id: "g1", name: "Zu erledigen", option_ids: ["o2"] }, { id: "g2", name: "Abgeschlossen", option_ids: ["o1"] }],
+      },
+    };
+    await makeBackend(fake).createRecord({ submission: makeSubmission() });
+    expect(fake.pages[0]!.properties.Status).toEqual({ status: { name: "Nicht begonnen" } });
+  });
+
+  it("skips status and warns when a status property has no To-do option", async () => {
+    const fake = new FakeNotion();
+    fake.schema.Status = {
+      id: "s",
+      name: "Status",
+      type: "status",
+      status: { options: [{ id: "o1", name: "Done" }], groups: [{ id: "g1", name: "To-do", option_ids: [] }, { id: "g3", name: "Complete", option_ids: ["o1"] }] },
+    };
+    const warn = vi.fn();
+    await makeBackend(fake, { logger: { ...silentLogger, warn } }).createRecord({ submission: makeSubmission() });
+    expect(fake.pages[0]!.properties.Status).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("without a status"));
+  });
+
+  it("writes the server projectId over the submission's, and the submission's when the server has none", async () => {
+    const fake = new FakeNotion();
+    await makeBackend(fake, { projectId: "server" }).createRecord({ submission: makeSubmission({ projectId: "client" }) });
+    await makeBackend(fake).createRecord({ submission: makeSubmission({ projectId: "client" }) });
+    expect(fake.pages.map((p) => p.properties.Project.rich_text[0].text.content)).toEqual(["server", "client"]);
+  });
+
+  it("lists blank canvases in the capture notes", () => {
+    const submission = makeSubmission({ capture: { method: "dom", width: 10, height: 10, warnings: [{ code: "blank-canvas", message: "x", count: 2 }] } });
+    const text = JSON.stringify(buildChildren(submission, {}));
+    expect(text).toContain("2 canvases appeared empty in the screenshot.");
+  });
+
   it("does not modify the schema when autoSetupSchema is false", async () => {
     const fake = new FakeNotion();
     await makeBackend(fake, { autoSetupSchema: false }).createRecord({ submission: makeSubmission() });

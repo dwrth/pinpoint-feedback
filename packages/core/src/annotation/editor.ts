@@ -2,7 +2,8 @@ import { createId } from "../ids";
 import type { AnnotationEditor, AnnotationEditorOptions, AnnotationEditorState } from "../interfaces";
 import { enEditor, type EditorMessages } from "../i18n/editor";
 import { createTranslator, formatPercent, type Translate } from "../i18n/format";
-import type { Annotation, AnnotationTool, Point, Size, TextAnnotation } from "../types";
+import { LIMITS } from "../limits";
+import type { Annotation, AnnotationTool, PinAnnotation, Point, Size, TextAnnotation } from "../types";
 import {
   DEFAULT_ANNOTATION_COLOR,
   DEFAULT_STROKE_WIDTH,
@@ -46,6 +47,7 @@ type Gesture =
   | { kind: "pinch"; ids: [number, number]; startDist: number; startZoom: number; anchor: Point };
 
 interface TextEditorState {
+  kind: "text";
   el: HTMLTextAreaElement;
   at: Point;
   fontSize: number;
@@ -53,6 +55,17 @@ interface TextEditorState {
   editing?: TextAnnotation;
   cleanup: () => void;
 }
+
+interface NoteEditorState {
+  kind: "note";
+  el: HTMLTextAreaElement;
+  pinId: string;
+  cleanup: () => void;
+}
+
+const NOTE_WIDTH = 220;
+const NOTE_GAP = 8;
+const NOTE_MARGIN = 4;
 
 const DOUBLE_CLICK_MS = 400;
 
@@ -167,8 +180,10 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
   const pointers = new Map<number, Point>();
   let spaceHeld = false;
   let hoverHit = false;
-  let textEditor: TextEditorState | null = null;
+  let textEditor: TextEditorState | NoteEditorState | null = null;
   let lastClick: { time: number; point: Point } | null = null;
+  let lastPinClick: { time: number; id: string } | null = null;
+  const pinNotes = options.pinNotes !== false;
   let destroyed = false;
   let rafHandle: number | null = null;
   const stateListeners = new Set<(state: AnnotationEditorState) => void>();
@@ -298,7 +313,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     ctx.drawImage(image.source, 0, 0, image.width, image.height);
 
     ctx.setTransform(dpr, 0, 0, dpr, dpr * panX, dpr * panY);
-    const editingId = textEditor?.editing?.id;
+    const editingId = textEditor?.kind === "text" ? textEditor.editing?.id : undefined;
     const visible: Annotation[] = editingId ? annotations.filter((a) => a.id !== editingId) : annotations.slice();
     if (gesture?.kind === "draw") visible.push(gesture.draft);
     const renderOptions: RenderAnnotationsOptions = {
@@ -387,6 +402,10 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
 
   function positionTextEditor(): void {
     if (!textEditor) return;
+    if (textEditor.kind === "note") {
+      positionNoteEditor(textEditor);
+      return;
+    }
     const s = imageToScreen(textEditor.at, view);
     const style = textEditor.el.style;
     style.left = `${s.x}px`;
@@ -401,6 +420,26 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     el.style.height = `${Math.max(fontSize * TEXT_LINE_HEIGHT, el.scrollHeight)}px`;
   }
 
+  function positionNoteEditor(ed: NoteEditorState): void {
+    const pin = annotations.find((a) => a.id === ed.pinId);
+    if (!pin || pin.type !== "pin") return;
+    const s = imageToScreen(pin.at, view);
+    const r = pinRadiusFor(image?.width) * view.zoom;
+    const width = ed.el.offsetWidth || NOTE_WIDTH;
+    const height = ed.el.offsetHeight || 0;
+    let left = s.x + r + NOTE_GAP;
+    if (left + width > containerSize.width - NOTE_MARGIN) left = s.x - r - NOTE_GAP - width;
+    left = Math.max(NOTE_MARGIN, Math.min(left, containerSize.width - width - NOTE_MARGIN));
+    const top = Math.max(NOTE_MARGIN, Math.min(s.y - r, containerSize.height - height - NOTE_MARGIN));
+    ed.el.style.left = `${left}px`;
+    ed.el.style.top = `${top}px`;
+  }
+
+  function autoGrowNote(el: HTMLTextAreaElement): void {
+    el.style.height = "0px";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }
+
   function styleTextEditor(ed: TextEditorState): void {
     const halo = contrastColor(ed.color, 0.9);
     const h = Math.max(1, ed.fontSize * 0.09);
@@ -409,6 +448,114 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       caretColor: ed.color,
       textShadow: `${halo} ${h}px 0 0, ${halo} -${h}px 0 0, ${halo} 0 ${h}px 0, ${halo} 0 -${h}px 0`,
     });
+  }
+
+  function attachEditorListeners(
+    el: HTMLTextAreaElement,
+    onInput: () => void,
+    onCommit: () => void,
+    onCancel: () => void,
+    onKey?: (e: KeyboardEvent) => boolean,
+  ): () => void {
+    const onKeyDown = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.isComposing || onKey?.(e)) return;
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        onCommit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+    const onBlur = () => commitText(false);
+    const stop = (e: Event) => e.stopPropagation();
+    el.addEventListener("input", onInput);
+    el.addEventListener("keydown", onKeyDown);
+    el.addEventListener("blur", onBlur);
+    el.addEventListener("pointerdown", stop);
+    el.addEventListener("wheel", stop);
+    return () => {
+      el.removeEventListener("input", onInput);
+      el.removeEventListener("keydown", onKeyDown);
+      el.removeEventListener("blur", onBlur);
+      el.removeEventListener("pointerdown", stop);
+      el.removeEventListener("wheel", stop);
+      el.remove();
+    };
+  }
+
+  function openNoteEditor(pin: PinAnnotation): void {
+    if (textEditor) commitText(false);
+    const el = doc.createElement("textarea");
+    el.setAttribute("aria-label", t("pinNote.label", { number: pin.number }));
+    el.placeholder = t("pinNote.placeholder");
+    el.dir = "auto";
+    el.rows = 1;
+    el.maxLength = LIMITS.textAnnotationMax;
+    el.spellcheck = true;
+    el.value = pin.note ?? "";
+    Object.assign(el.style, {
+      position: "absolute",
+      margin: "0",
+      padding: "6px 8px",
+      width: `${NOTE_WIDTH}px`,
+      maxWidth: `calc(100% - ${NOTE_MARGIN * 2}px)`,
+      border: `1px solid ${SELECTION_COLOR}`,
+      borderRadius: "6px",
+      outline: "none",
+      background: "#ffffff",
+      color: "#111827",
+      boxShadow: "0 4px 16px rgba(15, 23, 42, 0.18)",
+      resize: "none",
+      overflow: "hidden",
+      whiteSpace: "pre-wrap",
+      overflowWrap: "anywhere",
+      font: `400 13px/1.4 ${TEXT_FONT_FAMILY}`,
+      zIndex: "1",
+      boxSizing: "border-box",
+      userSelect: "text",
+      webkitUserSelect: "text",
+    });
+    const cleanup = attachEditorListeners(
+      el,
+      () => {
+        autoGrowNote(el);
+        positionTextEditor();
+      },
+      () => commitText(true),
+      () => cancelText(true),
+      (e) => {
+        const undoKey = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "z" || e.key === "Z");
+        if (!undoKey || el.value !== (pin.note ?? "")) return false;
+        e.preventDefault();
+        cancelText(true);
+        api.undo();
+        return true;
+      },
+    );
+    textEditor = { kind: "note", el, pinId: pin.id, cleanup };
+    wrapper.appendChild(el);
+    autoGrowNote(el);
+    positionTextEditor();
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+    scheduleRender();
+    emitState();
+  }
+
+  function commitNote(ed: NoteEditorState): void {
+    const pin = annotations.find((a) => a.id === ed.pinId);
+    if (!pin || pin.type !== "pin") return;
+    const raw = ed.el.value.replace(/\s+$/, "");
+    const note = raw.trim() ? raw : undefined;
+    if (note === (pin.note?.trim() ? pin.note : undefined)) return;
+    const { note: _previous, ...rest } = pin;
+    const updated: PinAnnotation = note === undefined ? rest : { ...rest, note };
+    commit(
+      annotations.map((a) => (a === pin ? updated : a)),
+      t(note === undefined ? "pinNote.removed" : "pinNote.saved", { number: pin.number }),
+    );
   }
 
   function openTextEditor(at: Point, existing?: TextAnnotation): void {
@@ -441,42 +588,23 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       webkitUserSelect: "text",
     });
 
-    const onInput = () => autoGrow(el, fontSize);
-    const onKeyDown = (e: KeyboardEvent) => {
-      e.stopPropagation();
-      if (e.isComposing) return;
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        commitText(true);
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        cancelText(true);
-      }
-    };
-    const onBlur = () => commitText(false);
-    const stop = (e: Event) => e.stopPropagation();
-    el.addEventListener("input", onInput);
-    el.addEventListener("keydown", onKeyDown);
-    el.addEventListener("blur", onBlur);
-    el.addEventListener("pointerdown", stop);
-    el.addEventListener("wheel", stop);
-
-    textEditor = {
+    const cleanup = attachEditorListeners(
+      el,
+      () => autoGrow(el, fontSize),
+      () => commitText(true),
+      () => cancelText(true),
+    );
+    const ed: TextEditorState = {
+      kind: "text",
       el,
       at: { ...at },
       fontSize,
       color: existing?.color ?? color,
       editing: existing,
-      cleanup: () => {
-        el.removeEventListener("input", onInput);
-        el.removeEventListener("keydown", onKeyDown);
-        el.removeEventListener("blur", onBlur);
-        el.removeEventListener("pointerdown", stop);
-        el.removeEventListener("wheel", stop);
-        el.remove();
-      },
+      cleanup,
     };
-    styleTextEditor(textEditor);
+    textEditor = ed;
+    styleTextEditor(ed);
     wrapper.appendChild(el);
     positionTextEditor();
     autoGrow(el, fontSize);
@@ -486,7 +614,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     emitState();
   }
 
-  function closeTextEditor(refocus: boolean): TextEditorState | null {
+  function closeTextEditor(refocus: boolean): TextEditorState | NoteEditorState | null {
     const ed = textEditor;
     if (!ed) return null;
     const hadFocus = doc.activeElement === ed.el;
@@ -499,6 +627,12 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
   function commitText(refocus: boolean): void {
     const ed = closeTextEditor(refocus);
     if (!ed) return;
+    if (ed.kind === "note") {
+      commitNote(ed);
+      scheduleRender();
+      emitState();
+      return;
+    }
     const text = ed.el.value.replace(/\s+$/, "");
     const existing = ed.editing;
     if (existing) {
@@ -612,8 +746,8 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     }
     if (gesture || pointers.size > 1) return;
 
-    const hadEditor = textEditor !== null;
-    if (hadEditor) commitText(false);
+    const hadEditor = textEditor?.kind === "text";
+    if (textEditor) commitText(false);
     wrapper.focus({ preventScroll: true });
     e.preventDefault();
 
@@ -627,6 +761,17 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     capture(e.pointerId);
 
     const ip = screenToImage(p, view);
+    if (tool !== "select") {
+      const hit = findAnnotationAt(annotations, ip, hitTolerance(e.pointerType), geometryOptions());
+      const now = Date.now();
+      if (hit?.type === "pin" && lastPinClick?.id === hit.id && now - lastPinClick.time <= DOUBLE_CLICK_MS) {
+        lastPinClick = null;
+        release(e.pointerId);
+        openNoteEditor(hit);
+        return;
+      }
+      lastPinClick = hit?.type === "pin" ? { time: now, id: hit.id } : null;
+    }
     const base = { id: createId(), color, strokeWidth };
     switch (tool) {
       case "select": {
@@ -760,6 +905,10 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     const minScreen = 4;
     switch (draft.type) {
       case "freehand": {
+        const first = draft.points[0];
+        if (draft.points.length === 1 && first && findAnnotationAt(annotations, first, 0, geometryOptions())?.type === "pin") {
+          return;
+        }
         const points = simplifyPath(draft.points, 0.6 / view.zoom);
         commit([...annotations, { ...draft, points }], t("drawing.added"));
         return;
@@ -813,14 +962,21 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
           history.record(g.before);
           emitChange();
           announce(describeAction(t, g.original, "moved"));
-        } else if (isDoubleClick(p) && g.original.type === "text") {
-          openTextEditor(g.original.at, g.original);
+        } else if (isDoubleClick(p)) {
+          const target = annotations.find((a) => a.id === g.original.id);
+          if (target?.type === "text") openTextEditor(target.at, target);
+          else if (target?.type === "pin") openNoteEditor(target);
         }
         break;
       case "click": {
         if (g.hadEditor || !insideImage(g.startImage)) break;
         if (tool === "pin") {
-          const pin: Annotation = {
+          const hit = findAnnotationAt(annotations, g.startImage, hitTolerance(e.pointerType), geometryOptions());
+          if (hit?.type === "pin") {
+            openNoteEditor(hit);
+            break;
+          }
+          const pin: PinAnnotation = {
             id: createId(),
             type: "pin",
             color,
@@ -829,6 +985,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
             number: nextPinNumber(annotations),
           };
           commit([...annotations, pin], describeAction(t, pin, "added"));
+          if (pinNotes) openNoteEditor(pin);
         } else if (tool === "text") {
           const hit = findAnnotationAt(annotations, g.startImage, hitTolerance(e.pointerType), geometryOptions());
           if (hit?.type === "text") openTextEditor(hit.at, hit);
@@ -898,6 +1055,14 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     }
     if (mod || e.altKey) return;
     switch (key) {
+      case "Enter": {
+        const target = selectedId !== undefined ? annotations.find((a) => a.id === selectedId) : undefined;
+        if (target?.type === "pin") {
+          e.preventDefault();
+          openNoteEditor(target);
+        }
+        return;
+      }
       case "Delete":
       case "Backspace":
         if (selectedId !== undefined) {
@@ -1032,7 +1197,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
 
     setColor(next) {
       color = next;
-      if (textEditor) {
+      if (textEditor?.kind === "text") {
         textEditor.color = next;
         styleTextEditor(textEditor);
       } else if (selectedId !== undefined) {

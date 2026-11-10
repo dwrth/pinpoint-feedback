@@ -10,6 +10,7 @@ export function typeChecks() {
   return (
     <>
       <FeedbackProvider />
+      <FeedbackProvider maxFileBytes={20 * 1024 * 1024} />
       <FeedbackProvider defaultCategory="design" />
       {/* @ts-expect-error not a built-in category */}
       <FeedbackProvider defaultCategory="perf" />
