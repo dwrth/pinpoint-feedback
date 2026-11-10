@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "e2e": "npm run e2e -w pinpoint-feedback-example-nextjs",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "version:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",

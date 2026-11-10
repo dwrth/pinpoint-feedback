@@ -1,6 +1,6 @@
 {
   "name": "@pinpoint-feedback/server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-independent server handler and Notion backend for Pinpoint Feedback (Web Request/Response).",
   "license": "MIT",
   "repository": {
@@ -39,6 +39,6 @@
   },
   "dependencies": {
     "@notionhq/client": "^5.31.1",
-    "@pinpoint-feedback/core": "0.1.0"
+    "@pinpoint-feedback/core": "0.1.1"
   }
 }

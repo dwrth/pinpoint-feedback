@@ -155,9 +155,16 @@ Add `packages/core/src/locales/<tag>.ts` built with `defineLocale`, exporting th
 
 ## Releasing
 
-Nothing is automated; there is no release workflow. The current state:
+Releases are published by `.github/workflows/release.yml` when a GitHub release is published. It uses npm [trusted publishing](https://docs.npmjs.com/trusted-publishers) (GitHub OIDC, no stored token) and publishes with provenance.
 
-- All five packages are at `0.1.0`. Internal dependencies are pinned to exact versions (`"@pinpoint-feedback/core": "0.1.0"`), so bump every package and every internal dependency range together.
-- Each package publishes only `dist/` (the umbrella also `README.md`), so build first: `npm run build`.
-- Publish dependencies before dependents: core → server → react → nextjs → pinpoint-feedback, e.g. `npm publish -w @pinpoint-feedback/core`. Scoped packages need `--access public` on their first publish.
-- The umbrella's `README.md` is the root README copied at build time. Its relative links (`docs/…`, `examples/…`) don't resolve on npmjs.com.
+```bash
+npm run version:bump -- patch      # or minor, major, or an explicit x.y.z
+git commit -am "Release vX.Y.Z" && git push
+gh release create vX.Y.Z --generate-notes
+```
+
+- `version:bump` sets the same version on all five packages, the pinned internal dependencies (`"@pinpoint-feedback/core": "X.Y.Z"`) and the example app, then refreshes `package-lock.json`.
+- The workflow checks that every package version equals the tag, runs typecheck, build and tests, then publishes core → server → react → nextjs → pinpoint-feedback. Versions already on npm are skipped, so a failed run can be re-run.
+- `gh workflow run release.yml -f dry-run=true` rehearses everything with `npm publish --dry-run`.
+- Each package on npmjs.com must list this repository and `release.yml` as its trusted publisher (package Settings → Trusted Publisher → GitHub Actions).
+- Each package ships `dist/`, `README.md` and `LICENSE`. The umbrella's README is the root README copied at build time, with relative links rewritten to absolute GitHub URLs.
