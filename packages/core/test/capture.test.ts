@@ -483,3 +483,15 @@ describe("DisplayMediaScreenshotCapturer", () => {
     await expect(fast().capture()).rejects.toMatchObject({ code: "unsupported" });
   });
 });
+
+describe("getAccessibleFrameDocument (declared src)", () => {
+  it("treats a cross-origin src as inaccessible even before it navigates", async () => {
+    const { getAccessibleFrameDocument } = await import("../src/capture/index");
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("src", "https://third-party.example/embed");
+    Object.defineProperty(iframe, "contentDocument", { value: document.implementation.createHTMLDocument("") });
+    document.body.appendChild(iframe);
+    expect(getAccessibleFrameDocument(iframe)).toBeNull();
+    iframe.remove();
+  });
+});

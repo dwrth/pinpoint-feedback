@@ -60,7 +60,21 @@ function frameBounds(iframe: HTMLIFrameElement): Bounds {
 }
 
 /** Returns the iframe's document if it can be read from this realm, otherwise null. */
+function declaresCrossOriginSrc(iframe: HTMLIFrameElement): boolean {
+  if (iframe.hasAttribute("srcdoc")) return false;
+  const raw = iframe.getAttribute("src");
+  if (!raw) return false;
+  try {
+    const url = new URL(raw, iframe.ownerDocument.baseURI);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    return url.origin !== iframe.ownerDocument.defaultView?.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 export function getAccessibleFrameDocument(iframe: HTMLIFrameElement): Document | null {
+  if (declaresCrossOriginSrc(iframe)) return null;
   try {
     const doc = iframe.contentDocument;
     if (!doc) return null;
