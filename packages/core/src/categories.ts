@@ -19,6 +19,11 @@ export interface CategoryDefinition<Id extends string = string> {
   color?: CategoryColor;
   /** Emoji used as the icon of the summary callout on the Notion page. */
   emoji?: string;
+  /**
+   * Widget labels per locale tag, e.g. `{ de: "Leistung" }`. Notion always stores `label`,
+   * so select options stay stable across languages.
+   */
+  labels?: Readonly<Record<string, string>>;
 }
 
 export const DEFAULT_CATEGORIES = [
@@ -76,8 +81,25 @@ export function resolveCategories(list: CategoryList = DEFAULT_CATEGORIES): Cate
     }
     if (seen.has(def.id)) throw new CategoryConfigError(`categories[${i}]: duplicate id "${def.id}"`);
     seen.add(def.id);
-    return { id: def.id, label, ...(def.color ? { color: def.color } : {}), ...(def.emoji ? { emoji: def.emoji } : {}) };
+    return {
+      id: def.id,
+      label,
+      ...(def.color ? { color: def.color } : {}),
+      ...(def.emoji ? { emoji: def.emoji } : {}),
+      ...(def.labels ? { labels: def.labels } : {}),
+    };
   });
+}
+
+/** Display label for a locale: exact tag, then language-only tag, then `label`. */
+export function localizedCategoryLabel(category: CategoryDefinition, locale: string): string {
+  const labels = category.labels;
+  if (!labels) return category.label;
+  const lower = locale.toLowerCase();
+  const lang = lower.split("-")[0]!;
+  for (const [tag, text] of Object.entries(labels)) if (tag.toLowerCase() === lower && text) return text;
+  for (const [tag, text] of Object.entries(labels)) if (tag.toLowerCase().split("-")[0] === lang && text) return text;
+  return category.label;
 }
 
 /**

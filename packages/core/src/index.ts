@@ -7,3 +7,4 @@ export * from "./validation";
 export * from "./capture/index";
 export * from "./annotation/index";
 export * from "./client/index";
+export * from "./i18n/index";
