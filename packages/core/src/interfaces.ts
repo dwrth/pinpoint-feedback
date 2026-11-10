@@ -7,6 +7,7 @@ import type {
   FeedbackSubmission,
   SubmissionFiles,
   SubmissionResult,
+  Size,
 } from "./types";
 
 /** Captures the current page. Implementations: DOM rasterisation, getDisplayMedia, test fakes. */
@@ -28,6 +29,8 @@ export interface AnnotationRenderOptions {
   scale?: number;
   /** Annotation id to draw with a selection outline. */
   selectedId?: string;
+  /** Screenshot size in pixels; lets renderers size pins and text relative to the image. */
+  imageSize?: Size;
 }
 
 /** Draws annotations onto a 2D canvas context. */
