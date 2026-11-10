@@ -217,7 +217,7 @@ export interface FeedbackClient {
     options?: { signal?: AbortSignal; onProgress?: (p: SubmitProgress) => void },
   ): Promise<SubmissionResult>;
   /** Re-sends everything left in the outbox (e.g. after a reload or coming back online). */
-  retryPending(options?: { signal?: AbortSignal }): Promise<SubmissionResult[]>;
+  retryPending(options?: { signal?: AbortSignal; force?: boolean }): Promise<SubmissionResult[]>;
   pending(): Promise<OutboxEntry[]>;
   discard(submissionId: string): Promise<void>;
 }
