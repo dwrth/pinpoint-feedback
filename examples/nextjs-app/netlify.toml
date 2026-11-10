@@ -12,3 +12,5 @@
 [build.environment]
   NODE_VERSION = "24"
   NEXT_TELEMETRY_DISABLED = "1"
+  # A project ID is a public tag (it often equals the site domain), not a secret. Scanning stays on for all other keys.
+  SECRETS_SCAN_OMIT_KEYS = "PINPOINT_PROJECT_ID"
