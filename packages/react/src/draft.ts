@@ -4,6 +4,7 @@ import {
   type BrowserMetadata,
   type FeedbackPriority,
 } from "@pinpoint-feedback/core";
+import type { WidgetTranslate } from "./i18n";
 
 export interface Draft {
   /** Generated once per draft and reused for every (re)submission attempt: the server's idempotency key. */
@@ -26,13 +27,6 @@ export interface Draft {
 export type DraftField = "title" | "description" | "name" | "email";
 export type FieldErrors = Partial<Record<DraftField, string>>;
 
-export const PRIORITY_LABELS: Record<FeedbackPriority, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
-};
-
 export function createDraft(init: {
   category: string;
   priority: FeedbackPriority;
@@ -54,18 +48,18 @@ export function createDraft(init: {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateDraft(draft: Draft, options: { reporterFields: boolean }): FieldErrors {
+export function validateDraft(draft: Draft, options: { reporterFields: boolean }, t: WidgetTranslate): FieldErrors {
   const errors: FieldErrors = {};
   const title = draft.title.trim();
-  if (!title) errors.title = "Add a short title";
-  else if (title.length > LIMITS.titleMax) errors.title = `Keep the title under ${LIMITS.titleMax} characters`;
+  if (!title) errors.title = t("validation.titleRequired");
+  else if (title.length > LIMITS.titleMax) errors.title = t("validation.titleTooLong", { max: LIMITS.titleMax });
   if (draft.description.trim().length > LIMITS.descriptionMax)
-    errors.description = `Keep the description under ${LIMITS.descriptionMax.toLocaleString("en-US")} characters`;
+    errors.description = t("validation.descriptionTooLong", { max: LIMITS.descriptionMax });
   if (options.reporterFields) {
-    if (draft.name.trim().length > LIMITS.nameMax) errors.name = `Keep the name under ${LIMITS.nameMax} characters`;
+    if (draft.name.trim().length > LIMITS.nameMax) errors.name = t("validation.nameTooLong", { max: LIMITS.nameMax });
     const email = draft.email.trim();
-    if (email.length > LIMITS.emailMax) errors.email = `Keep the email under ${LIMITS.emailMax} characters`;
-    else if (email && !EMAIL_RE.test(email)) errors.email = "Enter a valid email address";
+    if (email.length > LIMITS.emailMax) errors.email = t("validation.emailTooLong", { max: LIMITS.emailMax });
+    else if (email && !EMAIL_RE.test(email)) errors.email = t("validation.emailInvalid");
   }
   return errors;
 }

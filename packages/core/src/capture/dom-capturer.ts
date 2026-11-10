@@ -5,10 +5,11 @@ import { blobToDataUrl, raceCapture } from "./async";
 import { CaptureError, isCaptureError, throwIfAborted } from "./errors";
 import { createCaptureFilter } from "./exclusion";
 import { scanCaptureLimitations, type CaptureLimitations, type ScannedImage } from "./limitations";
+import { captureTranslator, type CaptureLocaleOptions, type CaptureTranslate } from "./messages";
 import { PLACEHOLDER_IMAGE_DATA_URL, replaceWithPlaceholder, type PlaceholderKind } from "./placeholder";
 import { computeCaptureScale } from "./scale";
 
-export interface DomScreenshotCapturerOptions {
+export interface DomScreenshotCapturerOptions extends CaptureLocaleOptions {
   /** Replace uncapturable content (cross-origin iframes, tainted canvases, failed images...) with labelled hatched placeholders. Default true. */
   placeholders?: boolean;
   /** Timeout per image/media request in ms. Default 10000. */
@@ -51,6 +52,7 @@ interface RenderContext {
   shiftRoot: boolean;
   backgroundColor: string;
   state: RenderState;
+  t: CaptureTranslate;
   isCancelled: () => boolean;
 }
 
@@ -109,10 +111,6 @@ function normalizeUrl(url: string): string {
   }
 }
 
-function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
 /** Rasterises the current viewport (at the current scroll position) via modern-screenshot. */
 export class DomScreenshotCapturer implements ScreenshotCapturer {
   readonly id = "dom";
@@ -158,6 +156,11 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
       marked.push(element);
     };
 
+    const i18n: CaptureLocaleOptions = {
+      messages: options.messages ?? this.config.messages,
+      locale: options.locale ?? this.config.locale,
+    };
+    const t = captureTranslator(i18n);
     let cancelled = false;
     const state: RenderState = { failedImages: new Set(), videosNotCaptured: 0 };
 
@@ -194,6 +197,7 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
         shiftRoot: doc.compatMode !== "BackCompat",
         backgroundColor: this.config.backgroundColor ?? resolveBackgroundColor(doc),
         state,
+        t,
         isCancelled: () => cancelled || Boolean(signal?.aborted),
       };
 
@@ -216,7 +220,7 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
           downscaled: sizing.downscaled,
           fontFallback,
           placeholders: this.placeholders,
-        }),
+        }, i18n),
         capturedAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -316,7 +320,12 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
       const stillVideo = info.placeholder === "video" && element.localName === "video";
       if (stillVideo) context.state.videosNotCaptured++;
       if (info.placeholder && this.placeholders && (info.placeholder !== "video" || stillVideo)) {
-        target = replaceWithPlaceholder(element, info.placeholder, info.size ?? elementSize(element));
+        target = replaceWithPlaceholder(
+          element,
+          info.placeholder,
+          info.size ?? elementSize(element),
+          context.t(`placeholder.${info.placeholder}`),
+        );
       }
 
       const style = (target as Partial<ElementCSSInlineStyle>).style;
@@ -337,21 +346,24 @@ export interface DomWarningFlags {
   placeholders: boolean;
 }
 
-/** Translates scan results and render outcomes into user-facing warnings. */
+/** Translates scan results and render outcomes into warnings (messages in the given locale, English by default). */
 export function buildDomWarnings(
   limitations: CaptureLimitations,
   state: { failedImages: ReadonlySet<string>; videosNotCaptured: number },
   flags: DomWarningFlags,
+  i18n: CaptureLocaleOptions = {},
 ): CaptureWarning[] {
+  const t = captureTranslator(i18n);
   const warnings: CaptureWarning[] = [];
-  const shown = (what: string) => (flags.placeholders ? `shown as ${what}` : "the area is left blank");
+  const labelled = flags.placeholders ? t("warning.labelledPlaceholders") : t("warning.leftBlank");
+  const hatched = flags.placeholders ? t("warning.hatchedPlaceholders") : t("warning.leftBlank");
 
   const iframes = limitations.crossOriginIframes.length;
   if (iframes > 0) {
     warnings.push({
       code: "cross-origin-iframe",
       count: iframes,
-      message: `${plural(iframes, "cross-origin iframe")} could not be captured because the browser does not allow reading ${iframes === 1 ? "its" : "their"} content; ${shown("labelled placeholders")}.`,
+      message: `${t("warning.crossOriginIframe", { count: iframes })} ${labelled}`,
     });
   }
 
@@ -360,7 +372,7 @@ export function buildDomWarnings(
     warnings.push({
       code: "tainted-canvas",
       count: canvases,
-      message: `${plural(canvases, "canvas", "canvases")} could not be captured because ${canvases === 1 ? "it contains" : "they contain"} cross-origin data; ${shown("labelled placeholders")}.`,
+      message: `${t("warning.taintedCanvas", { count: canvases })} ${labelled}`,
     });
   }
 
@@ -369,11 +381,9 @@ export function buildDomWarnings(
     const missing = Math.min(videos, state.videosNotCaptured);
     const stills = videos - missing;
     const parts: string[] = [];
-    if (missing > 0) parts.push(`${plural(missing, "video")} could not be captured; ${shown("labelled placeholders")}`);
-    if (stills > 0) {
-      parts.push(`${plural(stills, "video")} ${stills === 1 ? "was" : "were"} captured as a still image (current frame or poster), which may not match what was playing`);
-    }
-    warnings.push({ code: "video", count: videos, message: `${parts.join(". ")}.` });
+    if (missing > 0) parts.push(`${t("warning.videoNotCaptured", { count: missing })} ${labelled}`);
+    if (stills > 0) parts.push(t("warning.videoStill", { count: stills }));
+    warnings.push({ code: "video", count: videos, message: parts.join(" ") });
   }
 
   const objects = limitations.embeddedObjects.length;
@@ -381,7 +391,7 @@ export function buildDomWarnings(
     warnings.push({
       code: "unknown",
       count: objects,
-      message: `${plural(objects, "embedded object")} (<object>/<embed>) could not be captured; ${shown("labelled placeholders")}.`,
+      message: `${t("warning.embeddedObject", { count: objects })} ${labelled}`,
     });
   }
 
@@ -398,30 +408,19 @@ export function buildDomWarnings(
     warnings.push({
       code: "cross-origin-image",
       count: crossOriginFailed,
-      message: `${plural(crossOriginFailed, "cross-origin image")} could not be loaded for the screenshot (blocked by CORS or unreachable); ${shown("hatched placeholders")}.`,
+      message: `${t("warning.crossOriginImage", { count: crossOriginFailed })} ${hatched}`,
     });
   }
   if (otherFailed > 0) {
     warnings.push({
       code: "unknown",
       count: otherFailed,
-      message: `${plural(otherFailed, "image")} could not be loaded for the screenshot; ${shown("hatched placeholders")}.`,
+      message: `${t("warning.imageFailed", { count: otherFailed })} ${hatched}`,
     });
   }
 
-  if (flags.fontFallback) {
-    warnings.push({
-      code: "font",
-      message: "Web fonts could not be embedded; text in the screenshot may use a fallback font.",
-    });
-  }
-
-  if (flags.downscaled) {
-    warnings.push({
-      code: "downscaled",
-      message: "The screenshot was downscaled to stay within the maximum image size.",
-    });
-  }
+  if (flags.fontFallback) warnings.push({ code: "font", message: t("warning.font") });
+  if (flags.downscaled) warnings.push({ code: "downscaled", message: t("warning.downscaled") });
 
   return warnings;
 }

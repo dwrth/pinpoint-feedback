@@ -2,6 +2,7 @@ import {
   collectBrowserMetadata,
   createDefaultCapturer,
   DisplayMediaScreenshotCapturer,
+  formatNumber,
   PINPOINT_IGNORE_ATTRIBUTE,
   type CapturedScreenshot,
   type CategoryList,
@@ -12,6 +13,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { pickCategory, useResolvedCategories } from "./categories";
 import { createDraft, type Draft } from "./draft";
 import { formatHotkey, getDefaultClient, nextFrames, useHotkey, useResolvedTheme } from "./hooks";
+import { I18nProvider, useWidgetI18n, type WidgetTranslate } from "./i18n";
 import { AlertIcon, CameraIcon, MessageIcon, MonitorIcon, Spinner } from "./icons";
 import { ShadowPortal } from "./ShadowRoot";
 import type { DefaultCategoryList, FeedbackController, FeedbackWidgetPosition, FeedbackWidgetProps } from "./types";
@@ -19,13 +21,13 @@ import type { DefaultCategoryList, FeedbackController, FeedbackWidgetPosition, F
 const loadDialog = () => import("./Dialog");
 const Dialog = lazy(loadDialog);
 
-
 type Phase =
   | { kind: "idle" }
   | { kind: "capturing"; displayMedia: boolean }
-  | { kind: "capture-error"; message: string; triedDisplayMedia: boolean }
+  | { kind: "capture-error"; code?: string; triedDisplayMedia: boolean }
   | { kind: "open" };
 
+/** Page corners stay physical in RTL: they place the widget relative to the viewport, not to text. */
 const CORNER: Record<FeedbackWidgetPosition, string> = {
   "bottom-right": "bottom-4 right-4 sm:bottom-5 sm:right-5",
   "bottom-left": "bottom-4 left-4 sm:bottom-5 sm:left-5",
@@ -45,9 +47,8 @@ function errorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  return "The page couldn't be captured.";
+function captureErrorMessage(t: WidgetTranslate, code: string | undefined): string {
+  return code === "unsupported" ? t("captureError.unsupported") : t("captureError.failed");
 }
 
 function isDisplayMediaSupported(): boolean {
@@ -71,7 +72,7 @@ export function Widget({
   projectId,
   reporter,
   collectReporter = true,
-  buttonLabel = "Feedback",
+  buttonLabel: buttonLabelProp,
   hotkey = false,
   zIndex = 2147483000,
   categories: categoriesProp,
@@ -83,8 +84,13 @@ export function Widget({
   onSubmitted,
   onError,
   hidden = false,
+  locale,
+  messages,
   onController,
 }: WidgetInternalProps) {
+  const i18n = useWidgetI18n(locale, messages);
+  const { t, bundle } = i18n;
+  const buttonLabel = buttonLabelProp ?? t("launcher.label");
   const resolvedTheme = useResolvedTheme(theme);
   const categories = useResolvedCategories(categoriesProp);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -99,8 +105,8 @@ export function Widget({
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
-  const latest = useRef({ client, endpoint, capturer, metadata, onError, defaultCategory, defaultPriority, categories });
-  latest.current = { client, endpoint, capturer, metadata, onError, defaultCategory, defaultPriority, categories };
+  const latest = useRef({ client, endpoint, capturer, metadata, onError, defaultCategory, defaultPriority, categories, bundle });
+  latest.current = { client, endpoint, capturer, metadata, onError, defaultCategory, defaultPriority, categories, bundle };
 
   const getClient = useCallback(
     (): FeedbackClient => latest.current.client ?? getDefaultClient(latest.current.endpoint),
@@ -159,8 +165,11 @@ export function Widget({
       const instance = useDisplayMedia
         ? new DisplayMediaScreenshotCapturer()
         : (custom ?? (defaultCapturerRef.current ??= createDefaultCapturer()));
+      const { bundle: active } = latest.current;
       const shot = await instance.capture({
         exclude: (el: Element) => el.hasAttribute(PINPOINT_IGNORE_ATTRIBUTE),
+        messages: active.capture,
+        locale: active.locale,
       });
       setScreenshot(shot);
       setPhase({ kind: "open" });
@@ -174,7 +183,7 @@ export function Widget({
         }
       } else {
         latest.current.onError?.({ type: "capture", error });
-        setPhase({ kind: "capture-error", message: errorMessage(error), triedDisplayMedia: useDisplayMedia });
+        setPhase({ kind: "capture-error", code, triedDisplayMedia: useDisplayMedia });
       }
     } finally {
       busyRef.current = false;
@@ -230,124 +239,126 @@ export function Widget({
     if (phase.kind === "capture-error") errorCardRef.current?.querySelector<HTMLElement>("button")?.focus();
   }, [phase.kind]);
 
-  const label = hotkey ? `${buttonLabel} (${formatHotkey(hotkey)})` : buttonLabel;
+  const label = hotkey ? t("common.withShortcut", { label: buttonLabel, shortcut: formatHotkey(hotkey) }) : buttonLabel;
   const showButton = !hidden && (phase.kind === "idle" || phase.kind === "capture-error");
 
   return (
-    <ShadowPortal zIndex={zIndex} theme={resolvedTheme} accentColor={accentColor}>
-      {showButton ? (
-        <button
-          ref={buttonRef}
-          type="button"
-          aria-label={pendingCount ? `${buttonLabel}, ${pendingCount} unsent` : buttonLabel}
-          aria-haspopup="dialog"
-          aria-keyshortcuts={hotkey || undefined}
-          title={label}
-          onClick={() => void capture(false)}
-          onPointerEnter={() => void loadDialog()}
-          onFocus={() => void loadDialog()}
-          className={`group pp-fade-in fixed ${CORNER[position]} inline-flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium text-fg shadow-float transition-[transform,background-color,box-shadow] duration-150 ease-out hover:-translate-y-px hover:bg-subtle active:translate-y-0 sm:h-10 sm:pr-4 sm:pl-3.5`}
-        >
-          <span className="grid size-5 place-items-center text-accent">
-            <MessageIcon size={18} />
-          </span>
-          <span className="hidden sm:inline">{buttonLabel}</span>
-          {pendingCount ? (
-            <span
-              aria-hidden="true"
-              className="absolute -top-1 -right-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-accent px-1 text-2xs font-semibold text-accent-fg ring-2 ring-surface tabular-nums"
-            >
-              {pendingCount}
+    <ShadowPortal zIndex={zIndex} theme={resolvedTheme} accentColor={accentColor} lang={bundle.locale} dir={bundle.dir}>
+      <I18nProvider value={i18n}>
+        {showButton ? (
+          <button
+            ref={buttonRef}
+            type="button"
+            aria-label={pendingCount ? t("launcher.labelWithPending", { label: buttonLabel, count: pendingCount }) : buttonLabel}
+            aria-haspopup="dialog"
+            aria-keyshortcuts={hotkey || undefined}
+            title={label}
+            onClick={() => void capture(false)}
+            onPointerEnter={() => void loadDialog()}
+            onFocus={() => void loadDialog()}
+            className={`group pp-fade-in fixed ${CORNER[position]} inline-flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium text-fg shadow-float transition-[transform,background-color,box-shadow] duration-150 ease-out hover:-translate-y-px hover:bg-subtle active:translate-y-0 sm:h-10 sm:ps-3.5 sm:pe-4`}
+          >
+            <span className="grid size-5 place-items-center text-accent">
+              <MessageIcon size={18} />
             </span>
-          ) : null}
-        </button>
-      ) : null}
+            <span className="hidden sm:inline">{buttonLabel}</span>
+            {pendingCount ? (
+              <span
+                aria-hidden="true"
+                className="absolute -top-1 -end-1 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-accent px-1 text-2xs font-semibold text-accent-fg ring-2 ring-surface tabular-nums"
+              >
+                {formatNumber(bundle.locale, pendingCount)}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
 
-      {phase.kind === "capturing" && !phase.displayMedia ? (
-        <div
-          role="status"
-          className={`pp-delayed-in fixed ${CORNER[position]} inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm text-fg-muted shadow-float`}
-        >
-          <Spinner size={14} />
-          Capturing…
-        </div>
-      ) : null}
-
-      {phase.kind === "capture-error" ? (
-        <div
-          ref={errorCardRef}
-          role="alertdialog"
-          aria-labelledby="pp-capture-error-title"
-          aria-describedby="pp-capture-error-desc"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") cancelCaptureError();
-          }}
-          className={`pp-pop-in fixed ${CARD_OFFSET[position]} w-[min(360px,calc(100vw-32px))] rounded-xl border border-line bg-surface p-4 text-fg shadow-float`}
-        >
-          <div className="flex gap-3">
-            <div className="grid size-8 shrink-0 place-items-center rounded-full bg-danger-bg text-danger">
-              <AlertIcon size={16} />
-            </div>
-            <div className="min-w-0">
-              <h2 id="pp-capture-error-title" className="text-sm font-semibold">
-                Screenshot failed
-              </h2>
-              <p id="pp-capture-error-desc" className="mt-0.5 text-sm break-words text-fg-muted">
-                {phase.message}
-              </p>
-            </div>
+        {phase.kind === "capturing" && !phase.displayMedia ? (
+          <div
+            role="status"
+            className={`pp-delayed-in fixed ${CORNER[position]} inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm text-fg-muted shadow-float`}
+          >
+            <Spinner size={14} />
+            {t("launcher.capturing")}
           </div>
-          <div className="mt-4 flex flex-col gap-2">
-            {displayMediaSupported && !phase.triedDisplayMedia ? (
+        ) : null}
+
+        {phase.kind === "capture-error" ? (
+          <div
+            ref={errorCardRef}
+            role="alertdialog"
+            aria-labelledby="pp-capture-error-title"
+            aria-describedby="pp-capture-error-desc"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancelCaptureError();
+            }}
+            className={`pp-pop-in fixed ${CARD_OFFSET[position]} w-[min(360px,calc(100vw-32px))] rounded-xl border border-line bg-surface p-4 text-fg shadow-float`}
+          >
+            <div className="flex gap-3">
+              <div className="grid size-8 shrink-0 place-items-center rounded-full bg-danger-bg text-danger">
+                <AlertIcon size={16} />
+              </div>
+              <div className="min-w-0">
+                <h2 id="pp-capture-error-title" className="text-sm font-semibold">
+                  {t("captureError.title")}
+                </h2>
+                <p id="pp-capture-error-desc" className="mt-0.5 text-sm break-words text-fg-muted">
+                  {captureErrorMessage(t, phase.code)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-2">
+              {displayMediaSupported && !phase.triedDisplayMedia ? (
+                <button
+                  type="button"
+                  onClick={() => void capture(true)}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg transition-[filter] duration-150 hover:brightness-110"
+                >
+                  <MonitorIcon size={14} />
+                  {t("captureError.tryScreenCapture")}
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={() => void capture(true)}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg transition-[filter] duration-150 hover:brightness-110"
+                onClick={continueWithoutScreenshot}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm font-medium transition-colors duration-150 hover:bg-muted"
               >
-                <MonitorIcon size={14} />
-                Try screen capture
+                <CameraIcon size={14} className="opacity-60" />
+                {t("captureError.continueWithout")}
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={continueWithoutScreenshot}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm font-medium transition-colors duration-150 hover:bg-muted"
-            >
-              <CameraIcon size={14} className="opacity-60" />
-              Continue without screenshot
-            </button>
-            <button
-              type="button"
-              onClick={cancelCaptureError}
-              className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-fg-muted transition-colors duration-150 hover:bg-muted hover:text-fg"
-            >
-              Cancel
-            </button>
+              <button
+                type="button"
+                onClick={cancelCaptureError}
+                className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-fg-muted transition-colors duration-150 hover:bg-muted hover:text-fg"
+              >
+                {t("captureError.cancel")}
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {phase.kind === "open" && draft ? (
-        <Suspense fallback={null}>
-          <Dialog
-            screenshot={screenshot}
-            draft={draft}
-            onDraftChange={(update) => setDraft((d) => (d ? update(d) : d))}
-            onClose={reset}
-            onRetake={(displayMedia) => void capture(displayMedia)}
-            displayMediaSupported={displayMediaSupported}
-            categories={categories}
-            showReporterFields={collectReporter}
-            reporter={reporter}
-            projectId={projectId}
-            getClient={getClient}
-            onSubmitted={onSubmitted}
-            onError={onError}
-            onSettled={refreshPending}
-            closeSignal={closeSignal}
-          />
-        </Suspense>
-      ) : null}
+        {phase.kind === "open" && draft ? (
+          <Suspense fallback={null}>
+            <Dialog
+              screenshot={screenshot}
+              draft={draft}
+              onDraftChange={(update) => setDraft((d) => (d ? update(d) : d))}
+              onClose={reset}
+              onRetake={(displayMedia) => void capture(displayMedia)}
+              displayMediaSupported={displayMediaSupported}
+              categories={categories}
+              showReporterFields={collectReporter}
+              reporter={reporter}
+              projectId={projectId}
+              getClient={getClient}
+              onSubmitted={onSubmitted}
+              onError={onError}
+              onSettled={refreshPending}
+              closeSignal={closeSignal}
+            />
+          </Suspense>
+        ) : null}
+      </I18nProvider>
     </ShadowPortal>
   );
 }

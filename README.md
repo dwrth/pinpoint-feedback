@@ -125,7 +125,7 @@ These props apply to `FeedbackProvider` and `FeedbackWidget`, from both `pinpoin
 | `projectId` | `string` | – | Stored with each report, so several sites can share one database. |
 | `reporter` | `{ name?, email? }` | – | A reporter you already know, such as the signed-in user. Hides the name/email fields. |
 | `collectReporter` | `boolean` | `true` | Show optional name/email fields. |
-| `buttonLabel` | `string` | `"Feedback"` | Text on the floating button. |
+| `buttonLabel` | `string` | `"Feedback"`, localized | Text on the floating button. Overrides the locale's `launcher.label`. |
 | `hotkey` | `string \| false` | `false` | Shortcut that toggles the widget, e.g. `"mod+shift+f"`. `mod` is ⌘ on Apple and Ctrl elsewhere. |
 | `zIndex` | `number` | `2147483000` | Stacking order of the widget. |
 | `categories` | `CategoryList`: built-in ids and/or `{ id, label, color?, emoji? }` | the five built-ins | Categories offered in the form, in this order. Must be the same list as the handler's `categories`; see [Custom categories](#custom-categories). |
@@ -136,6 +136,8 @@ These props apply to `FeedbackProvider` and `FeedbackWidget`, from both `pinpoin
 | `onSubmitted` | `(result) => void` | – | Called after Notion confirms the page, with `{ submissionId, pageId, pageUrl }`. |
 | `onError` | `(error) => void` | – | Capture or submit failures. |
 | `hidden` | `boolean` | `false` | Hide the floating button. You can still open the widget with `useFeedback().open()` or the hotkey. |
+| `locale` | `LocaleBundle \| LocaleBundle[]` | English | Widget language. One bundle is always used; with an array the best match for the page is picked. See [Internationalization](#internationalization). |
+| `messages` | `LocaleOverrides` | – | Replace individual texts of the active language, e.g. `{ widget: { "dialog.title": "Report a problem" } }`. Keys are type-checked. |
 
 `useFeedback()` returns `{ open(), close(), isOpen, pendingCount, retryPending() }`.
 
@@ -201,6 +203,103 @@ Each entry is either a built-in id or a definition:
 
 **In the widget.** Up to six categories are shown as buttons; longer lists use a dropdown. With a single category the field is hidden and that category is always sent. If the `categories` prop is invalid at runtime (for example a duplicate id), the widget logs an error to the console and falls back to the built-in categories instead of breaking your page. If `defaultCategory` isn't in the list, the first category is preselected.
 
+### Internationalization
+
+The widget, the annotation editor's screen-reader announcements, the labels drawn into screenshots for content that couldn't be captured, and the Notion report can all be localized. English is built in and used by default.
+
+**Built-in languages:** English (`en`). <!-- locales:list -->
+
+Each language is a separate entry point, `pinpoint-feedback/locales/<tag>`, so your bundle only contains the languages you import. A bundle is plain data (no functions), which means a Server Component can import it and pass it to the client widget as a prop.
+
+**One language.** Pass the bundle; it is always used:
+
+```tsx
+// app/layout.tsx (Server Component)
+import { FeedbackProvider } from "pinpoint-feedback/nextjs";
+import de from "pinpoint-feedback/locales/de";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="de">
+      <body>
+        {children}
+        <FeedbackProvider locale={de} />
+      </body>
+    </html>
+  );
+}
+```
+
+**Automatic choice.** Pass several bundles and the widget picks the best match for the page: first `<html lang>`, then the browser's languages (`navigator.languages`). Regional tags fall back to the language (`de-AT` → `de`, `pt` → `pt-BR`), and English is always available as the final fallback, whether or not you include it.
+
+```tsx
+import de from "pinpoint-feedback/locales/de";
+import fr from "pinpoint-feedback/locales/fr";
+
+<FeedbackProvider locale={[de, fr]} />
+```
+
+Because `<html lang>` comes first, a page marked `lang="en"` gets the English widget even for visitors whose browser prefers German. That keeps the widget in the same language as the page. If your site serves several languages, set `<html lang>` per request (the [example app](examples/nextjs-app) reads `?lang=` and `Accept-Language` in its root layout) or pass the matching single bundle.
+
+**Changing individual texts.** `messages` overrides any text of the active language. Keys are type-checked, so typos fail the build:
+
+```tsx
+<FeedbackProvider
+  locale={de}
+  messages={{
+    widget: { "launcher.label": "Hilfe", "dialog.title": "Problem melden" },
+    editor: { "pin.added": "Markierung {number} gesetzt" },
+  }}
+/>
+```
+
+Placeholders such as `{number}` must be kept. Countable texts are plural objects using [CLDR plural categories](https://cldr.unicode.org/index/cldr-spec/plural-rules) and `#` for the number, e.g. `{ one: "# unsent report", other: "# unsent reports" }`. Numbers, percentages and lists are formatted with `Intl` for the active language. Keyboard shortcut labels (⌘, Ctrl, Esc) are not translated. The full list of keys and their English texts is in [`packages/core/src/i18n`](packages/core/src/i18n).
+
+**Your own language.** Build a complete bundle with `defineLocale` from the root entry (it type-checks that every key is present) and pass it like a built-in one. Starting from an existing bundle is the easiest way:
+
+```ts
+// locales/sv.ts
+import { defineLocale } from "pinpoint-feedback";
+import en from "pinpoint-feedback/locales/en";
+
+export const sv = defineLocale({
+  ...en,
+  locale: "sv",
+  dir: "ltr",
+  widget: { ...en.widget, "launcher.label": "Återkoppling", "dialog.title": "Skicka återkoppling" /* … */ },
+  editor: { ...en.editor /* … */ },
+  capture: { ...en.capture /* … */ },
+  report: { ...en.report /* … */ },
+});
+```
+
+To add a language to the package itself, add `packages/core/src/locales/<tag>.ts` following [`en.ts`](packages/core/src/locales/en.ts) and the other files there; the build picks up every file in that folder. Translations are plain TypeScript objects, so native speakers can review and improve them in an ordinary pull request.
+
+**Category labels.** Category `label`s are what Notion stores, so they stay the same in every language. Give the widget translated labels with `labels`, keyed by language tag (the exact tag wins, then the language):
+
+```ts
+defineCategories([
+  "bug",
+  { id: "perf", label: "Performance", labels: { de: "Leistung", fr: "Performances", "pt-BR": "Desempenho" } },
+]);
+```
+
+Built-in categories (`"bug"`, `"design"`, …) are translated by the locale bundle as long as you keep their default label. Priority names are translated in the widget, while Notion keeps its fixed `Low` … `Critical` options.
+
+**Right-to-left languages.** Bundles declare `dir` (`"rtl"` for Arabic, for example). The widget sets `lang` and `dir` on its own root inside the Shadow DOM and mirrors its layout: the form moves to the left of the screenshot, toolbar order and paddings flip, and directional icons such as undo/redo are mirrored. The screenshot and the annotations on it are never mirrored, and the floating button stays in the page corner you chose with `position`, because that refers to the viewport, not to reading direction.
+
+<a id="notion-report-language"></a>**Notion report language.** The Notion page body is written by the server, so its language is set on the handler with `locale` and is independent of the widget's language. Database property names and select options are not translated, so filters and views keep working across languages.
+
+```ts
+// app/api/feedback/route.ts
+import { createFeedbackHandler } from "pinpoint-feedback/nextjs/server";
+import de from "pinpoint-feedback/locales/de";
+
+export const POST = createFeedbackHandler({ categories, locale: de });
+```
+
+Capture warnings are sent as codes with counts and rendered in the report's language.
+
 ### Server handler options
 
 You can pass these to `createFeedbackHandler()` from `pinpoint-feedback/nextjs/server` or to `createFeedbackRequestHandler()` from `pinpoint-feedback/server`.
@@ -225,6 +324,7 @@ You can pass these to `createFeedbackHandler()` from `pinpoint-feedback/nextjs/s
 | `onSubmission` | `(submission, record) => void` | – | Hook called after a new Notion page is created, for example to notify Slack. |
 | `maxFileBytes` | `number` | 5 MB | Maximum size for each screenshot. Notion's single-part upload limit is 5 MB on free workspaces and 20 MB on paid ones. |
 | `logger` | `{ info, warn, error }` | `console` | Where server-side diagnostics go. Secrets are never logged. |
+| `locale` | `LocaleBundle` | English | Language of the Notion page body (headings, metadata labels, capture warnings). See [Notion report language](#notion-report-language). |
 
 `createFeedbackHandler` also accepts `env` (an object to read the variables from instead of `process.env`).
 
@@ -294,7 +394,8 @@ pinpoint-feedback                  umbrella package you install (thin re-exports
 ├─ ./react      → @pinpoint-feedback/react    "use client"
 ├─ ./nextjs     → @pinpoint-feedback/nextjs   "use client"
 ├─ ./server     → @pinpoint-feedback/server   Node / Edge / Workers / Bun / Deno
-└─ ./nextjs/server → @pinpoint-feedback/nextjs/server   server-only
+├─ ./nextjs/server → @pinpoint-feedback/nextjs/server   server-only
+└─ ./locales/<tag> → @pinpoint-feedback/core/locales/<tag>   one language bundle each (plain data)
 
 @pinpoint-feedback/core      types · validation · DOM & display-media capturers ·
                               annotation editor (canvas) · HTTP transport · IndexedDB outbox

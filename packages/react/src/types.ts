@@ -5,6 +5,8 @@ import type {
   DEFAULT_CATEGORIES,
   FeedbackClient,
   FeedbackPriority,
+  LocaleBundle,
+  LocaleOverrides,
   Reporter,
   ScreenshotCapturer,
   SubmissionFailure,
@@ -33,6 +35,7 @@ export interface FeedbackWidgetProps<C extends CategoryList = DefaultCategoryLis
   reporter?: Reporter;
   /** Show optional name/email fields. Default true. */
   collectReporter?: boolean;
+  /** Floating button text. Default: the locale's `launcher.label` ("Feedback"). */
   buttonLabel?: string;
   /** Keyboard shortcut toggling the widget, e.g. "mod+shift+f" (mod = ⌘ on Apple, Ctrl elsewhere). */
   hotkey?: string | false;
@@ -53,6 +56,14 @@ export interface FeedbackWidgetProps<C extends CategoryList = DefaultCategoryLis
   onError?: (error: FeedbackWidgetError) => void;
   /** Hide the floating button. The widget can still be opened via `useFeedback().open()` or the hotkey. */
   hidden?: boolean;
+  /**
+   * UI language. A single bundle (e.g. `de` from `pinpoint-feedback/locales/de`) is always used;
+   * with an array, the best match for `<html lang>` and the browser languages is picked, with
+   * English always available as a fallback. Default: English.
+   */
+  locale?: LocaleBundle | readonly LocaleBundle[];
+  /** Overrides individual messages of the active locale, e.g. `{ widget: { "dialog.title": "Report a problem" } }`. */
+  messages?: LocaleOverrides;
 }
 
 export interface FeedbackProviderProps<C extends CategoryList = DefaultCategoryList> extends FeedbackWidgetProps<C> {

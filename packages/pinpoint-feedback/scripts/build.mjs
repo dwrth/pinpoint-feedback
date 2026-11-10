@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,6 +66,24 @@ async function collectExportNames(file, seen = new Set()) {
   return names;
 }
 
+/** One `locales/<tag>` entry per built-in locale bundle found in core's dist/locales. */
+async function writeLocaleEntries() {
+  const coreLocalesDir = join(dirname(resolveDistFile("@pinpoint-feedback/core")), "locales");
+  const tags = (await readdir(coreLocalesDir))
+    .filter((file) => file.endsWith(".js"))
+    .map((file) => file.slice(0, -3))
+    .sort();
+  if (tags.length === 0) throw new Error("@pinpoint-feedback/core: no locales in dist/locales; build it first");
+  await mkdir(join(distDir, "locales"), { recursive: true });
+  for (const tag of tags) {
+    const from = `@pinpoint-feedback/core/locales/${tag}`;
+    const code = `${BANNER}export * from "${from}";\nexport { default } from "${from}";\n`;
+    await writeFile(join(distDir, "locales", `${tag}.js`), code);
+    await writeFile(join(distDir, "locales", `${tag}.d.ts`), code);
+  }
+  return tags;
+}
+
 async function build() {
   await rm(distDir, { recursive: true, force: true });
   await mkdir(distDir, { recursive: true });
@@ -83,9 +101,11 @@ async function build() {
     await writeFile(join(distDir, `${entry.file}.d.ts`), `${BANNER}export * from "${entry.from}";\n`);
   }
 
+  const locales = await writeLocaleEntries();
+
   await copyFile(join(repoRoot, "README.md"), join(pkgDir, "README.md"));
   await copyFile(join(repoRoot, "LICENSE"), join(pkgDir, "LICENSE"));
-  console.log(`pinpoint-feedback: wrote ${entries.length} entries to dist/`);
+  console.log(`pinpoint-feedback: wrote ${entries.length} entries and ${locales.length} locales (${locales.join(", ")}) to dist/`);
 }
 
 build().catch((error) => {

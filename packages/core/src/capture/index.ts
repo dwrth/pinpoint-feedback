@@ -21,6 +21,12 @@ export {
 } from "./limitations";
 export { PLACEHOLDER_IMAGE_DATA_URL, PLACEHOLDER_LABELS, PLACEHOLDER_ATTRIBUTE, type PlaceholderKind } from "./placeholder";
 export {
+  formatCaptureWarning,
+  captureTranslator,
+  type CaptureLocaleOptions,
+  type CaptureTranslate,
+} from "./messages";
+export {
   DomScreenshotCapturer,
   CAPTURE_MARK_ATTRIBUTE,
   buildDomWarnings,

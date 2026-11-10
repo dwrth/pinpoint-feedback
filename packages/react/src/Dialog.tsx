@@ -1,6 +1,8 @@
 import {
   createAnnotationEditor,
   DEFAULT_ANNOTATION_COLOR,
+  formatCaptureWarning,
+  type EditorMessages,
   type AnnotationEditor,
   type AnnotationEditorState,
   type CapturedScreenshot,
@@ -17,6 +19,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as 
 import { isDraftDirty, validateDraft, type Draft, type DraftField, type FieldErrors } from "./draft";
 import { FeedbackForm } from "./Form";
 import { useFocusTrap } from "./hooks";
+import { fieldErrorsFromDetails, submissionErrorMessage, useI18n, type WidgetTranslate } from "./i18n";
 import {
   AlertIcon,
   CameraIcon,
@@ -59,7 +62,7 @@ type Status =
 
 const AUTO_CLOSE_MS = 4000;
 
-function useAnnotationEditor(image: Blob | undefined, scale: number) {
+function useAnnotationEditor(image: Blob | undefined, scale: number, messages: EditorMessages, locale: string) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [editor, setEditor] = useState<AnnotationEditor | null>(null);
   const [state, setState] = useState<AnnotationEditorState | null>(null);
@@ -72,6 +75,8 @@ function useAnnotationEditor(image: Blob | undefined, scale: number) {
       image,
       color: DEFAULT_ANNOTATION_COLOR,
       strokeWidth: strokeWidthsFor(scale)[1]!.width,
+      messages,
+      locale,
     });
     setEditor(instance);
     setState(instance.getState());
@@ -82,48 +87,32 @@ function useAnnotationEditor(image: Blob | undefined, scale: number) {
       setEditor(null);
       setState(null);
     };
-  }, [image, scale]);
+  }, [image, scale, messages, locale]);
 
   return { containerRef, editor, state };
 }
 
-function progressText(status: Extract<Status, { kind: "submitting" }>, now: number): string {
+function progressText(t: WidgetTranslate, status: Extract<Status, { kind: "submitting" }>, now: number): string {
   const p = status.progress;
-  if (!p) return "Preparing…";
+  if (!p) return t("progress.preparing");
   switch (p.phase) {
     case "preparing":
-      return "Preparing…";
+      return t("progress.preparing");
     case "queued":
-      return "Saving on this device…";
+      return t("progress.queued");
     case "sending":
-      if (p.attempt > 1) return `Sending (attempt ${p.attempt} of ${p.maxAttempts})…`;
-      return status.hasFiles ? "Uploading screenshots…" : "Sending…";
+      if (p.attempt > 1) return t("progress.attempt", { attempt: p.attempt, maxAttempts: p.maxAttempts });
+      return status.hasFiles ? t("progress.uploading") : t("progress.sending");
     case "retrying": {
-      if (status.retryAt === undefined) return "Retrying…";
+      if (status.retryAt === undefined) return t("progress.retrying");
       const seconds = Math.max(1, Math.ceil((status.retryAt - now) / 1000));
-      return `Retrying in ${seconds}s…`;
+      return t("progress.retryingIn", { count: seconds });
     }
     case "done":
-      return "Sent";
+      return t("progress.done");
     case "failed":
-      return "Sending failed";
+      return t("progress.failed");
   }
-}
-
-function fieldErrorsFromDetails(details: unknown): FieldErrors {
-  const errors: FieldErrors = {};
-  if (!Array.isArray(details)) return errors;
-  for (const issue of details) {
-    if (!issue || typeof issue !== "object") continue;
-    const { path, message } = issue as { path?: unknown; message?: unknown };
-    if (typeof path !== "string" || typeof message !== "string") continue;
-    const field = path === "reporter.name" ? "name" : path === "reporter.email" ? "email" : path;
-    if (field === "title" || field === "description" || field === "name" || field === "email") {
-      const label = field[0]!.toUpperCase() + field.slice(1);
-      errors[field] = `${label} ${message}`;
-    }
-  }
-  return errors;
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -150,11 +139,17 @@ export default function Dialog(props: DialogProps) {
     closeSignal,
   } = props;
 
+  const { t, bundle, locale } = useI18n();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const confirmKeepRef = useRef<HTMLButtonElement>(null);
-  const { containerRef, editor, state } = useAnnotationEditor(screenshot?.blob, screenshot?.scale ?? 1);
+  const { containerRef, editor, state } = useAnnotationEditor(
+    screenshot?.blob,
+    screenshot?.scale ?? 1,
+    bundle.editor,
+    locale,
+  );
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [touched, setTouched] = useState<Partial<Record<DraftField, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -189,7 +184,7 @@ export default function Dialog(props: DialogProps) {
   }, [succeeded, onClose]);
 
   const reporterFields = showReporterFields && !reporter;
-  const validationErrors = validateDraft(draft, { reporterFields });
+  const validationErrors = validateDraft(draft, { reporterFields }, t);
   const visibleErrors: FieldErrors = { ...serverErrors };
   for (const field of Object.keys(validationErrors) as DraftField[]) {
     if (submitAttempted || (touched[field] && draft[field].trim() !== "")) visibleErrors[field] = validationErrors[field];
@@ -304,7 +299,7 @@ export default function Dialog(props: DialogProps) {
         ok: false as const,
         error: {
           code: "network" as const,
-          message: error instanceof Error ? error.message : "Something went wrong while sending.",
+          message: error instanceof Error ? error.message : t("error.unknown"),
           retryable: true,
         },
       };
@@ -315,7 +310,7 @@ export default function Dialog(props: DialogProps) {
       onSubmitted?.(result);
     } else {
       setStatus({ kind: "error", error: result.error });
-      if (result.error.code === "validation") setServerErrors(fieldErrorsFromDetails(result.error.details));
+      if (result.error.code === "validation") setServerErrors(fieldErrorsFromDetails(t, result.error.details));
       onError?.({ type: "submit", error: result.error });
     }
     onSettled();
@@ -343,9 +338,9 @@ export default function Dialog(props: DialogProps) {
   const errorStatus = status.kind === "error" ? status.error : null;
   const liveMessage =
     status.kind === "submitting"
-      ? progressText(status, now)
+      ? progressText(t, status, now)
       : status.kind === "success"
-        ? "Feedback sent to Notion."
+        ? t("success.announcement")
         : "";
 
   return (
@@ -359,17 +354,17 @@ export default function Dialog(props: DialogProps) {
       >
         <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">
           <h2 id={titleId} className="text-sm font-semibold tracking-tight">
-            Send feedback
+            {t("dialog.title")}
           </h2>
-          <span className="hidden min-w-0 truncate font-mono text-2xs text-fg-subtle sm:block">
+          <span dir="auto" className="hidden min-w-0 truncate font-mono text-2xs text-fg-subtle sm:block">
             {draft.metadata.pageTitle || draft.metadata.url}
           </span>
           <button
             type="button"
-            aria-label="Close feedback dialog"
-            title="Close (Esc)"
+            aria-label={t("dialog.close")}
+            title={t("common.withShortcut", { label: t("dialog.closeShort"), shortcut: "Esc" })}
             onClick={requestClose}
-            className="ml-auto inline-flex size-8 items-center justify-center rounded-md text-fg-muted transition-colors duration-150 hover:bg-muted hover:text-fg"
+            className="ms-auto inline-flex size-8 items-center justify-center rounded-md text-fg-muted transition-colors duration-150 hover:bg-muted hover:text-fg"
           >
             <XIcon />
           </button>
@@ -377,8 +372,8 @@ export default function Dialog(props: DialogProps) {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto sm:flex-row sm:overflow-hidden">
           <section
-            aria-label="Screenshot"
-            className="flex h-[56vh] min-h-72 shrink-0 flex-col border-b border-line bg-canvas sm:h-auto sm:min-h-0 sm:min-w-0 sm:flex-1 sm:border-r sm:border-b-0"
+            aria-label={t("dialog.screenshotRegion")}
+            className="flex h-[56vh] min-h-72 shrink-0 flex-col border-b border-line bg-canvas sm:h-auto sm:min-h-0 sm:min-w-0 sm:flex-1 sm:border-e sm:border-b-0"
           >
             {screenshot ? (
               <>
@@ -390,10 +385,10 @@ export default function Dialog(props: DialogProps) {
                   >
                     <InfoIcon size={14} className="mt-px shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium">Parts of the page couldn't be captured exactly:</p>
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                      <p className="font-medium">{t("warnings.title")}</p>
+                      <ul className="mt-1 list-disc space-y-0.5 ps-4">
                         {warnings.map((w, i) => (
-                          <li key={`${w.code}-${i}`}>{w.message}</li>
+                          <li key={`${w.code}-${i}`}>{formatCaptureWarning(w, { messages: bundle.capture, locale })}</li>
                         ))}
                       </ul>
                       {displayMediaSupported ? (
@@ -403,13 +398,13 @@ export default function Dialog(props: DialogProps) {
                           className="mt-2 inline-flex items-center gap-1.5 font-medium underline underline-offset-2 hover:no-underline"
                         >
                           <MonitorIcon size={13} />
-                          Use screen capture instead
+                          {t("warnings.useScreenCapture")}
                         </button>
                       ) : null}
                     </div>
                     <button
                       type="button"
-                      aria-label="Dismiss capture notice"
+                      aria-label={t("warnings.dismiss")}
                       onClick={() => setWarningsDismissed(true)}
                       className="-m-1 inline-flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-warning/10"
                     >
@@ -430,8 +425,8 @@ export default function Dialog(props: DialogProps) {
                   <ImageOffIcon size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">No screenshot attached</p>
-                  <p className="mt-0.5 text-xs text-fg-muted">Your feedback will be sent with page details only.</p>
+                  <p className="text-sm font-medium">{t("noScreenshot.title")}</p>
+                  <p className="mt-0.5 text-xs text-fg-muted">{t("noScreenshot.description")}</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   <button
@@ -440,7 +435,7 @@ export default function Dialog(props: DialogProps) {
                     className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-xs font-medium shadow-[0_1px_1px_rgb(0_0_0/0.04)] transition-colors duration-150 hover:bg-muted"
                   >
                     <CameraIcon size={14} />
-                    Capture screenshot
+                    {t("noScreenshot.capture")}
                   </button>
                   {displayMediaSupported ? (
                     <button
@@ -449,7 +444,7 @@ export default function Dialog(props: DialogProps) {
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-xs font-medium shadow-[0_1px_1px_rgb(0_0_0/0.04)] transition-colors duration-150 hover:bg-muted"
                     >
                       <MonitorIcon size={14} />
-                      Use screen capture
+                      {t("noScreenshot.screenCapture")}
                     </button>
                   ) : null}
                 </div>
@@ -457,7 +452,7 @@ export default function Dialog(props: DialogProps) {
             )}
           </section>
 
-          <section aria-label="Details" className="flex flex-col sm:min-h-0 sm:w-[360px] sm:shrink-0 lg:w-[400px]">
+          <section aria-label={t("dialog.detailsRegion")} className="flex flex-col sm:min-h-0 sm:w-[360px] sm:shrink-0 lg:w-[400px]">
             {status.kind === "success" ? (
               <SuccessView result={status.result} onClose={onClose} />
             ) : (
@@ -486,11 +481,9 @@ export default function Dialog(props: DialogProps) {
                     <div role="alert" className="flex gap-2.5 rounded-lg bg-danger-bg px-3 py-2.5 text-xs text-danger">
                       <AlertIcon size={14} className="mt-px shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-medium">{errorStatus.message}</p>
+                        <p className="font-medium">{submissionErrorMessage(t, errorStatus)}</p>
                         {errorStatus.retryable ? (
-                          <p className="mt-0.5 opacity-90">
-                            Your report is saved on this device and will be retried automatically.
-                          </p>
+                          <p className="mt-0.5 opacity-90">{t("submit.savedForRetry")}</p>
                         ) : null}
                       </div>
                     </div>
@@ -500,7 +493,7 @@ export default function Dialog(props: DialogProps) {
                       {status.kind === "submitting" ? (
                         <span className="inline-flex items-center gap-1.5">
                           <Spinner size={12} />
-                          {progressText(status, now)}
+                          {progressText(t, status, now)}
                         </span>
                       ) : null}
                     </p>
@@ -510,7 +503,7 @@ export default function Dialog(props: DialogProps) {
                       className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-fg shadow-[0_1px_2px_rgb(0_0_0/0.12),inset_0_1px_0_rgb(255_255_255/0.12)] transition-[filter,opacity] duration-150 hover:brightness-110 disabled:cursor-progress disabled:opacity-70"
                     >
                       {submitting ? <Spinner size={14} /> : null}
-                      {submitting ? "Sending…" : errorStatus?.retryable ? "Retry" : "Send feedback"}
+                      {submitting ? t("submit.sending") : errorStatus?.retryable ? t("submit.retry") : t("submit.send")}
                     </button>
                   </div>
                 </footer>
@@ -533,10 +526,10 @@ export default function Dialog(props: DialogProps) {
               className="pp-pop-in w-full max-w-sm rounded-xl border border-line bg-surface p-5 shadow-float"
             >
               <h3 id={`${titleId}-confirm`} className="text-sm font-semibold">
-                Discard this feedback?
+                {t("confirm.title")}
               </h3>
               <p id={`${titleId}-confirm-desc`} className="mt-1 text-sm text-fg-muted">
-                Your notes and annotations will be lost.
+                {t("confirm.description")}
               </p>
               <div className="mt-4 flex justify-end gap-2">
                 <button
@@ -545,14 +538,14 @@ export default function Dialog(props: DialogProps) {
                   onClick={() => setConfirming(false)}
                   className="inline-flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-sm font-medium transition-colors duration-150 hover:bg-muted"
                 >
-                  Keep editing
+                  {t("confirm.keep")}
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
                   className="inline-flex h-8 items-center rounded-lg bg-danger px-3 text-sm font-medium text-danger-fg transition-[filter] duration-150 hover:brightness-110"
                 >
-                  Discard
+                  {t("confirm.discard")}
                 </button>
               </div>
             </div>
@@ -564,6 +557,7 @@ export default function Dialog(props: DialogProps) {
 }
 
 function SuccessView({ result, onClose }: { result: SubmissionSuccess; onClose: () => void }) {
+  const { t } = useI18n();
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     closeRef.current?.focus();
@@ -574,9 +568,9 @@ function SuccessView({ result, onClose }: { result: SubmissionSuccess; onClose: 
         <CheckIcon size={22} strokeWidth={2.5} />
       </div>
       <div>
-        <p className="text-base font-semibold tracking-tight">Sent to Notion</p>
+        <p className="text-base font-semibold tracking-tight">{t("success.title")}</p>
         <p className="mt-1 text-sm text-fg-muted">
-          {result.duplicate ? "This report was already received. Thanks!" : "Thanks for the feedback!"}
+          {result.duplicate ? t("success.duplicate") : t("success.thanks")}
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">
@@ -587,8 +581,8 @@ function SuccessView({ result, onClose }: { result: SubmissionSuccess; onClose: 
             rel="noopener noreferrer"
             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium transition-colors duration-150 hover:bg-muted"
           >
-            Open in Notion
-            <ExternalIcon size={13} />
+            {t("success.openInNotion")}
+            <ExternalIcon size={13} className="rtl:-scale-x-100" />
           </a>
         ) : null}
         <button
@@ -597,7 +591,7 @@ function SuccessView({ result, onClose }: { result: SubmissionSuccess; onClose: 
           onClick={onClose}
           className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg transition-[filter] duration-150 hover:brightness-110"
         >
-          Done
+          {t("success.done")}
         </button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import {
   ANNOTATION_COLORS,
   DEFAULT_STROKE_WIDTH,
+  formatPercent,
   type AnnotationEditor,
   type AnnotationEditorState,
   type AnnotationTool,
@@ -23,54 +24,70 @@ import {
   UndoIcon,
   type IconProps,
 } from "./icons";
+import { useI18n, type WidgetTranslate } from "./i18n";
 
-export const TOOLS: { tool: AnnotationTool; label: string; key: string; Icon: ComponentType<IconProps> }[] = [
-  { tool: "select", label: "Select", key: "V", Icon: PointerIcon },
-  { tool: "pin", label: "Pin", key: "P", Icon: PinIcon },
-  { tool: "arrow", label: "Arrow", key: "A", Icon: ArrowIcon },
-  { tool: "rectangle", label: "Rectangle", key: "R", Icon: SquareIcon },
-  { tool: "freehand", label: "Draw", key: "D", Icon: PencilIcon },
-  { tool: "text", label: "Text", key: "T", Icon: TypeIcon },
+export const TOOLS: { tool: AnnotationTool; key: string; Icon: ComponentType<IconProps> }[] = [
+  { tool: "select", key: "V", Icon: PointerIcon },
+  { tool: "pin", key: "P", Icon: PinIcon },
+  { tool: "arrow", key: "A", Icon: ArrowIcon },
+  { tool: "rectangle", key: "R", Icon: SquareIcon },
+  { tool: "freehand", key: "D", Icon: PencilIcon },
+  { tool: "text", key: "T", Icon: TypeIcon },
 ];
 
-const STROKE_PRESETS = [
-  { label: "S", name: "Thin", base: DEFAULT_STROKE_WIDTH / 2 },
-  { label: "M", name: "Medium", base: DEFAULT_STROKE_WIDTH },
-  { label: "L", name: "Thick", base: (DEFAULT_STROKE_WIDTH * 5) / 3 },
+type StrokePreset = "thin" | "medium" | "thick";
+
+const STROKE_PRESETS: { id: StrokePreset; base: number }[] = [
+  { id: "thin", base: DEFAULT_STROKE_WIDTH / 2 },
+  { id: "medium", base: DEFAULT_STROKE_WIDTH },
+  { id: "thick", base: (DEFAULT_STROKE_WIDTH * 5) / 3 },
 ];
 
 /** Stroke widths are in screenshot pixels, so presets scale with the capture's pixel ratio. */
 export function strokeWidthsFor(scale: number) {
   const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
-  return STROKE_PRESETS.map(({ label, name, base }) => ({
-    label,
-    name,
-    width: Math.max(1, Math.round(base * factor)),
-  }));
+  return STROKE_PRESETS.map(({ id, base }) => ({ id, width: Math.max(1, Math.round(base * factor)) }));
 }
 
-const COLOR_NAMES: Record<string, string> = {
-  "#ef4444": "Red",
-  "#f97316": "Orange",
-  "#f59e0b": "Amber",
-  "#eab308": "Yellow",
-  "#22c55e": "Green",
-  "#10b981": "Emerald",
-  "#06b6d4": "Cyan",
-  "#3b82f6": "Blue",
-  "#6366f1": "Indigo",
-  "#8b5cf6": "Violet",
-  "#a855f7": "Purple",
-  "#ec4899": "Pink",
-  "#000000": "Black",
-  "#111111": "Black",
-  "#18181b": "Black",
-  "#111827": "Black",
-  "#ffffff": "White",
+type ColorName =
+  | "red"
+  | "orange"
+  | "amber"
+  | "yellow"
+  | "green"
+  | "emerald"
+  | "cyan"
+  | "blue"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "pink"
+  | "black"
+  | "white";
+
+const COLOR_NAMES: Record<string, ColorName> = {
+  "#ef4444": "red",
+  "#f97316": "orange",
+  "#f59e0b": "amber",
+  "#eab308": "yellow",
+  "#22c55e": "green",
+  "#10b981": "emerald",
+  "#06b6d4": "cyan",
+  "#3b82f6": "blue",
+  "#6366f1": "indigo",
+  "#8b5cf6": "violet",
+  "#a855f7": "purple",
+  "#ec4899": "pink",
+  "#000000": "black",
+  "#111111": "black",
+  "#18181b": "black",
+  "#111827": "black",
+  "#ffffff": "white",
 };
 
-function colorName(color: string): string {
-  return COLOR_NAMES[color.toLowerCase()] ?? color;
+function colorName(t: WidgetTranslate, color: string): string {
+  const name = COLOR_NAMES[color.toLowerCase()];
+  return name ? t(`color.${name}`) : color;
 }
 
 const btn =
@@ -93,13 +110,14 @@ function ToolButton({
   children: ReactNode;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={pressed}
       aria-keyshortcuts={shortcut}
-      title={shortcut ? `${label} (${shortcut})` : label}
+      title={shortcut ? t("common.withShortcut", { label, shortcut }) : label}
       disabled={disabled}
       onClick={onClick}
       className={`${btn} ${pressed ? "bg-accent/12 text-accent hover:bg-accent/15 hover:text-accent" : ""} ${className}`}
@@ -123,19 +141,20 @@ export interface ToolbarProps {
 }
 
 export function Toolbar({ editor, state, scale, onRetake, disabled }: ToolbarProps) {
+  const { t, locale } = useI18n();
   const off = disabled || !editor || !state;
   const strokeWidths = strokeWidthsFor(scale);
   return (
     <div
       role="toolbar"
-      aria-label="Annotation tools"
+      aria-label={t("toolbar.label")}
       className="flex h-12 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-line bg-surface px-2 [scrollbar-width:none]"
     >
-      <div role="group" aria-label="Tools" className="flex items-center gap-0.5">
-        {TOOLS.map(({ tool, label, key, Icon }) => (
+      <div role="group" aria-label={t("toolbar.tools")} className="flex items-center gap-0.5">
+        {TOOLS.map(({ tool, key, Icon }) => (
           <ToolButton
             key={tool}
-            label={label}
+            label={t(`tool.${tool}`)}
             shortcut={key}
             pressed={state?.tool === tool}
             disabled={off}
@@ -146,16 +165,17 @@ export function Toolbar({ editor, state, scale, onRetake, disabled }: ToolbarPro
         ))}
       </div>
       <Divider />
-      <div role="group" aria-label="Color" className="flex items-center gap-1 px-1">
+      <div role="group" aria-label={t("toolbar.color")} className="flex items-center gap-1 px-1">
         {ANNOTATION_COLORS.map((color) => {
           const selected = state?.color.toLowerCase() === color.toLowerCase();
+          const name = colorName(t, color);
           return (
             <button
               key={color}
               type="button"
-              aria-label={`Color ${colorName(color)}`}
+              aria-label={t("toolbar.colorOption", { color: name })}
               aria-pressed={selected}
-              title={colorName(color)}
+              title={name}
               disabled={off}
               onClick={() => editor?.setColor(color)}
               className={`grid size-6 shrink-0 place-items-center rounded-full transition-transform duration-150 hover:scale-110 disabled:opacity-40 ${selected ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
@@ -170,65 +190,65 @@ export function Toolbar({ editor, state, scale, onRetake, disabled }: ToolbarPro
         })}
       </div>
       <Divider />
-      <div role="group" aria-label="Stroke width" className="flex items-center gap-0.5">
-        {strokeWidths.map(({ label, name, width }) => (
+      <div role="group" aria-label={t("toolbar.strokeWidth")} className="flex items-center gap-0.5">
+        {strokeWidths.map(({ id, width }) => (
           <ToolButton
-            key={label}
-            label={`${name} stroke`}
+            key={id}
+            label={t(`stroke.${id}`)}
             pressed={state?.strokeWidth === width}
             disabled={off}
             onClick={() => editor?.setStrokeWidth(width)}
-            className="w-7 text-xs font-semibold"
+            className="min-w-7 px-1 text-xs font-semibold"
           >
-            {label}
+            {t(`stroke.${id}Short`)}
           </ToolButton>
         ))}
       </div>
       <Divider />
-      <ToolButton label="Undo" shortcut="Mod+Z" disabled={off || !state?.canUndo} onClick={() => editor?.undo()}>
-        <UndoIcon />
+      <ToolButton label={t("toolbar.undo")} shortcut="Mod+Z" disabled={off || !state?.canUndo} onClick={() => editor?.undo()}>
+        <UndoIcon className="rtl:-scale-x-100" />
       </ToolButton>
-      <ToolButton label="Redo" shortcut="Mod+Shift+Z" disabled={off || !state?.canRedo} onClick={() => editor?.redo()}>
-        <RedoIcon />
+      <ToolButton label={t("toolbar.redo")} shortcut="Mod+Shift+Z" disabled={off || !state?.canRedo} onClick={() => editor?.redo()}>
+        <RedoIcon className="rtl:-scale-x-100" />
       </ToolButton>
-      <ToolButton label="Clear annotations" disabled={off || !state?.annotationCount} onClick={() => editor?.clear()}>
+      <ToolButton label={t("toolbar.clear")} disabled={off || !state?.annotationCount} onClick={() => editor?.clear()}>
         <TrashIcon />
       </ToolButton>
       <div className="min-w-2 flex-1" />
-      <div role="group" aria-label="Zoom" className="flex items-center gap-0.5">
-        <ToolButton label="Zoom out" shortcut="-" disabled={off} onClick={() => editor?.zoomOut()}>
+      <div role="group" aria-label={t("toolbar.zoom")} className="flex items-center gap-0.5">
+        <ToolButton label={t("toolbar.zoomOut")} shortcut="-" disabled={off} onClick={() => editor?.zoomOut()}>
           <MinusIcon />
         </ToolButton>
         <button
           type="button"
-          aria-label="Reset zoom to 100%"
-          title="Reset zoom to 100%"
+          aria-label={t("toolbar.zoomReset", { percent: formatPercent(locale, 1) })}
+          title={t("toolbar.zoomReset", { percent: formatPercent(locale, 1) })}
           disabled={off}
           onClick={() => editor?.setZoom(1)}
           className="h-8 min-w-12 shrink-0 rounded-md px-1 text-xs font-medium text-fg-muted tabular-nums transition-colors duration-150 hover:bg-muted hover:text-fg disabled:opacity-40"
         >
-          {state ? `${Math.round(state.zoom * 100)}%` : "–"}
+          {state ? formatPercent(locale, state.zoom) : "–"}
         </button>
-        <ToolButton label="Zoom in" shortcut="+" disabled={off} onClick={() => editor?.zoomIn()}>
+        <ToolButton label={t("toolbar.zoomIn")} shortcut="+" disabled={off} onClick={() => editor?.zoomIn()}>
           <PlusIcon />
         </ToolButton>
-        <ToolButton label="Fit to view" shortcut="0" disabled={off} onClick={() => editor?.fitToView()}>
+        <ToolButton label={t("toolbar.fit")} shortcut="0" disabled={off} onClick={() => editor?.fitToView()}>
           <FitIcon />
         </ToolButton>
       </div>
       <Divider />
-      <ToolButton label="Reset screenshot" disabled={off} onClick={() => editor?.reset()}>
+      <ToolButton label={t("toolbar.resetScreenshot")} disabled={off} onClick={() => editor?.reset()}>
         <ResetIcon />
       </ToolButton>
       <button
         type="button"
         onClick={onRetake}
         disabled={disabled}
-        title="Retake screenshot"
-        className="ml-0.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-fg-muted transition-colors duration-150 hover:bg-muted hover:text-fg disabled:opacity-40"
+        title={t("toolbar.retakeTooltip")}
+        className="ms-0.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-fg-muted transition-colors duration-150 hover:bg-muted hover:text-fg disabled:opacity-40"
       >
         <CameraIcon size={14} />
-        Retake
+        {t("toolbar.retake")}
       </button>
     </div>
   );

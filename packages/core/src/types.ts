@@ -1,4 +1,5 @@
 import type { BuiltinCategoryId } from "./categories";
+import type { CaptureMessages } from "./i18n/capture";
 
 /** Ids of the built-in categories. Custom categories are configured via `defineCategories`. */
 export const FEEDBACK_CATEGORIES = ["bug", "design", "content", "feature", "other"] as const satisfies readonly BuiltinCategoryId[];
@@ -128,6 +129,10 @@ export interface CaptureOptions {
   /** Upper bound on width*height in screenshot pixels; the capture is downscaled to fit. */
   maxPixels?: number;
   signal?: AbortSignal;
+  /** Texts for placeholders drawn into the screenshot and for warnings. Overrides the capturer's own. */
+  messages?: CaptureMessages;
+  /** BCP 47 tag for plural rules and number formatting in capture texts. */
+  locale?: string;
 }
 
 /* ------------------------------------------------------------------ */

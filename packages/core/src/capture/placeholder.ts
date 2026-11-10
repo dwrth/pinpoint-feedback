@@ -1,3 +1,5 @@
+import { enCapture } from "../i18n/capture";
+
 const HATCH_SVG =
   "<svg xmlns='http://www.w3.org/2000/svg' width='100%' height='100%'>" +
   "<defs><pattern id='p' width='14' height='14' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'>" +
@@ -7,11 +9,12 @@ const HATCH_SVG =
 /** Hatched image used in place of images that could not be loaded during capture. */
 export const PLACEHOLDER_IMAGE_DATA_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(HATCH_SVG)}`;
 
+/** English placeholder labels; localized ones come from `CaptureMessages` (`placeholder.*`). */
 export const PLACEHOLDER_LABELS = {
-  iframe: "Cross-origin iframe — content not captured",
-  object: "Embedded object — content not captured",
-  canvas: "Protected canvas — content not captured",
-  video: "Video — frame not captured",
+  iframe: enCapture["placeholder.iframe"],
+  object: enCapture["placeholder.object"],
+  canvas: enCapture["placeholder.canvas"],
+  video: enCapture["placeholder.video"],
 } as const;
 
 export type PlaceholderKind = keyof typeof PLACEHOLDER_LABELS;
@@ -43,7 +46,12 @@ const BOX_STYLES: ReadonlyArray<readonly [string, string]> = [
  * Builds a clearly labelled, hatched box that replaces `clone` (an element in the cloned DOM).
  * Layout-related inline styles (position, margins, transforms...) are kept from the clone.
  */
-export function createPlaceholder(clone: Element, kind: PlaceholderKind, size: { width: number; height: number }): HTMLElement {
+export function createPlaceholder(
+  clone: Element,
+  kind: PlaceholderKind,
+  size: { width: number; height: number },
+  label: string = PLACEHOLDER_LABELS[kind],
+): HTMLElement {
   const doc = clone.ownerDocument;
   const box = doc.createElement("div");
   const inlineStyle = clone.getAttribute("style");
@@ -58,14 +66,19 @@ export function createPlaceholder(clone: Element, kind: PlaceholderKind, size: {
   box.style.setProperty("height", `${Math.max(0, size.height)}px`, "important");
   for (const [name, value] of BOX_STYLES) box.style.setProperty(name, value, "important");
 
-  const label = doc.createElement("span");
-  label.textContent = PLACEHOLDER_LABELS[kind];
-  box.appendChild(label);
+  const text = doc.createElement("span");
+  text.textContent = label;
+  box.appendChild(text);
   return box;
 }
 
-export function replaceWithPlaceholder(clone: Element, kind: PlaceholderKind, size: { width: number; height: number }): HTMLElement {
-  const placeholder = createPlaceholder(clone, kind, size);
+export function replaceWithPlaceholder(
+  clone: Element,
+  kind: PlaceholderKind,
+  size: { width: number; height: number },
+  label?: string,
+): HTMLElement {
+  const placeholder = createPlaceholder(clone, kind, size, label);
   clone.replaceWith(placeholder);
   return placeholder;
 }

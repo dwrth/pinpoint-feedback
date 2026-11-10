@@ -23,6 +23,9 @@ export type {
   FeedbackWidgetPosition,
   FeedbackWidgetProps,
   FeedbackWidgetTheme,
+  LocaleBundle,
+  LocaleOverrides,
+  TextDirection,
 } from "@pinpoint-feedback/react";
 
 export const DEFAULT_FEEDBACK_ENDPOINT = "/api/feedback";
@@ -58,8 +61,12 @@ function withDefaults<P extends FeedbackWidgetProps<CategoryList>>(props: P): P 
  * Pass `categories` as a plain array (e.g. from a shared `feedback.config.ts` built with
  * `defineCategories` from `"pinpoint-feedback"`) so the same list reaches the route handler.
  *
+ * Locale bundles are plain data, so they can be imported in the Server Component and passed down:
+ *
  * ```tsx
- * <FeedbackProvider position="bottom-right" theme="light" categories={categories} defaultCategory="bug" />
+ * import de from "pinpoint-feedback/locales/de";
+ *
+ * <FeedbackProvider position="bottom-right" theme="light" categories={categories} defaultCategory="bug" locale={de} />
  * ```
  */
 export function FeedbackProvider<const C extends CategoryList = DefaultCategoryList>(

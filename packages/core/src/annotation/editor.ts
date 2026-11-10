@@ -1,5 +1,7 @@
 import { createId } from "../ids";
 import type { AnnotationEditor, AnnotationEditorOptions, AnnotationEditorState } from "../interfaces";
+import { enEditor, type EditorMessages } from "../i18n/editor";
+import { createTranslator, formatPercent, type Translate } from "../i18n/format";
 import type { Annotation, AnnotationTool, Point, Size, TextAnnotation } from "../types";
 import {
   DEFAULT_ANNOTATION_COLOR,
@@ -54,20 +56,20 @@ interface TextEditorState {
 
 const DOUBLE_CLICK_MS = 400;
 
-function describe(a: Annotation): string {
+type AnnotationAction = "added" | "moved" | "deleted";
+
+function describeAction(t: Translate<typeof enEditor>, a: Annotation, action: AnnotationAction): string {
   switch (a.type) {
     case "pin":
-      return `Pin ${a.number}`;
+      return t(`pin.${action}`, { number: a.number });
     case "freehand":
-      return "Drawing";
+      return t(`drawing.${action}`);
     case "arrow":
-      return "Arrow";
+      return t(`arrow.${action}`);
     case "rectangle":
-      return "Rectangle";
+      return t(`rectangle.${action}`);
     case "text":
-      return "Text";
-    default:
-      return "Annotation";
+      return t(`text.${action}`);
   }
 }
 
@@ -97,6 +99,8 @@ function snapAngle(from: Point, to: Point): Point {
 
 export function createAnnotationEditor(options: AnnotationEditorOptions): AnnotationEditor {
   const { container } = options;
+  const locale = options.locale ?? "en";
+  const t = createTranslator<typeof enEditor>(locale, options.messages ?? enEditor);
   const renderer = options.renderer ?? defaultAnnotationRenderer;
   const doc = container.ownerDocument;
   const win: Window & typeof globalThis = (doc.defaultView ?? window) as Window & typeof globalThis;
@@ -105,12 +109,10 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
   wrapper.className = "pinpoint-annotation-editor";
   wrapper.tabIndex = 0;
   wrapper.setAttribute("role", "application");
-  wrapper.setAttribute(
-    "aria-label",
-    "Screenshot annotation editor. Use the toolbar to choose a tool, then click or drag on the screenshot.",
-  );
+  wrapper.setAttribute("aria-label", t("editor.label"));
   Object.assign(wrapper.style, {
     position: "relative",
+    direction: "ltr",
     overflow: "hidden",
     width: "100%",
     height: "100%",
@@ -413,7 +415,8 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     if (textEditor) commitText(false);
     const fontSize = existing?.fontSize ?? textSizeFor(image?.width, strokeWidth);
     const el = doc.createElement("textarea");
-    el.setAttribute("aria-label", "Annotation text. Enter to save, Shift+Enter for a new line, Escape to cancel.");
+    el.setAttribute("aria-label", t("textInput.label"));
+    el.dir = "auto";
     el.rows = 1;
     el.wrap = "off";
     el.spellcheck = true;
@@ -502,12 +505,12 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       if (!text.trim()) {
         commit(
           annotations.filter((a) => a.id !== existing.id),
-          "Text deleted",
+          t("text.deleted"),
         );
       } else if (text !== existing.text || ed.color !== existing.color) {
         commit(
           annotations.map((a) => (a.id === existing.id ? { ...existing, text, color: ed.color } : a)),
-          "Text updated",
+          t("text.updated"),
         );
       }
     } else if (text.trim()) {
@@ -520,7 +523,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         text,
         fontSize: ed.fontSize,
       };
-      commit([...annotations, annotation], "Text added");
+      commit([...annotations, annotation], t("text.added"));
     }
     scheduleRender();
     emitState();
@@ -758,16 +761,16 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     switch (draft.type) {
       case "freehand": {
         const points = simplifyPath(draft.points, 0.6 / view.zoom);
-        commit([...annotations, { ...draft, points }], "Drawing added");
+        commit([...annotations, { ...draft, points }], t("drawing.added"));
         return;
       }
       case "arrow":
         if (distance(draft.from, draft.to) * view.zoom < minScreen) return;
-        commit([...annotations, draft], "Arrow added");
+        commit([...annotations, draft], t("arrow.added"));
         return;
       case "rectangle":
         if (draft.width * view.zoom < minScreen || draft.height * view.zoom < minScreen) return;
-        commit([...annotations, draft], "Rectangle added");
+        commit([...annotations, draft], t("rectangle.added"));
         return;
       default:
         return;
@@ -809,7 +812,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         if (g.moved) {
           history.record(g.before);
           emitChange();
-          announce(`${describe(g.original)} moved`);
+          announce(describeAction(t, g.original, "moved"));
         } else if (isDoubleClick(p) && g.original.type === "text") {
           openTextEditor(g.original.at, g.original);
         }
@@ -825,7 +828,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
             at: g.startImage,
             number: nextPinNumber(annotations),
           };
-          commit([...annotations, pin], `Pin ${pin.number} added`);
+          commit([...annotations, pin], describeAction(t, pin, "added"));
         } else if (tool === "text") {
           const hit = findAnnotationAt(annotations, g.startImage, hitTolerance(e.pointerType), geometryOptions());
           if (hit?.type === "text") openTextEditor(hit.at, hit);
@@ -875,7 +878,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
 
   function zoomBy(factor: number): void {
     setZoom(view.zoom * factor);
-    announce(`Zoom ${Math.round(view.zoom * 100)}%`);
+    announce(t("zoom.changed", { percent: formatPercent(locale, view.zoom) }));
   }
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -927,7 +930,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       case "0":
         e.preventDefault();
         fitToView();
-        announce("Fit to view");
+        announce(t("zoom.fit"));
         return;
       case " ":
         e.preventDefault();
@@ -1068,7 +1071,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       cancelGesture();
       commit(
         annotations.filter((a) => a !== target),
-        `${describe(target)} deleted`,
+        describeAction(t, target, "deleted"),
       );
     },
 
@@ -1080,7 +1083,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       annotations = previous;
       ensureSelectionValid();
       emitChange();
-      announce("Undone");
+      announce(t("history.undone"));
       scheduleRender();
       emitState();
     },
@@ -1093,7 +1096,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       annotations = next;
       ensureSelectionValid();
       emitChange();
-      announce("Redone");
+      announce(t("history.redone"));
       scheduleRender();
       emitState();
     },
@@ -1102,7 +1105,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       cancelText(false);
       cancelGesture();
       if (annotations.length === 0) return;
-      commit([], "All annotations cleared");
+      commit([], t("annotations.cleared"));
     },
 
     reset() {
@@ -1114,7 +1117,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       selectedId = undefined;
       fitToView();
       if (hadAnnotations) emitChange();
-      announce("Annotations reset");
+      announce(t("annotations.reset"));
       scheduleRender();
       emitState();
     },

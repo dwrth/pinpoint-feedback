@@ -63,7 +63,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv11", "ss01";
-  text-align: left;
+  text-align: start;
   color: var(--pp-fg);
 }
 

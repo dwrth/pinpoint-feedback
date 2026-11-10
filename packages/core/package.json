@@ -10,6 +10,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./locales/*": { "types": "./dist/locales/*.d.ts", "import": "./dist/locales/*.js" },
     "./package.json": "./package.json"
   },
   "files": ["dist"],

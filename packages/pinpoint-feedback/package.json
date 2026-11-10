@@ -15,6 +15,7 @@
     "./react": { "types": "./dist/react.d.ts", "import": "./dist/react.js" },
     "./nextjs": { "types": "./dist/nextjs.d.ts", "import": "./dist/nextjs.js" },
     "./nextjs/server": { "types": "./dist/nextjs-server.d.ts", "import": "./dist/nextjs-server.js" },
+    "./locales/*": { "types": "./dist/locales/*.d.ts", "import": "./dist/locales/*.js" },
     "./package.json": "./package.json"
   },
   "files": ["dist", "README.md"],

@@ -3,9 +3,10 @@ import type { CaptureOptions, CaptureWarning, CapturedScreenshot, Size } from ".
 import { canvasToPngBlob, delay, raceCapture, waitForAnimationFrames } from "./async";
 import { CaptureError, abortError, isCaptureError, throwIfAborted } from "./errors";
 import { hideExcludedElements } from "./exclusion";
+import { captureTranslator, type CaptureLocaleOptions } from "./messages";
 import { computeCaptureScale } from "./scale";
 
-export interface DisplayMediaScreenshotCapturerOptions {
+export interface DisplayMediaScreenshotCapturerOptions extends CaptureLocaleOptions {
   /** Extra wait after hiding excluded elements (lets the "sharing this tab" bar and layout settle). Default 150. */
   settleDelayMs?: number;
   /** Timeout for obtaining a frame once the stream is live. Default 5000. */
@@ -176,13 +177,17 @@ export class DisplayMediaScreenshotCapturer implements ScreenshotCapturer {
       restoreExcluded();
       restoreExcluded = undefined;
 
+      const t = captureTranslator({
+        messages: options.messages ?? this.config.messages,
+        locale: options.locale ?? this.config.locale,
+      });
       const warnings: CaptureWarning[] = [];
       const surface = (track.getSettings() as MediaTrackSettings & { displaySurface?: string }).displaySurface;
       const isTab = surface === undefined || surface === "browser";
       if (!isTab) {
         warnings.push({
           code: "unknown",
-          message: `A ${surface === "monitor" ? "whole screen" : "window"} was shared instead of this tab; the screenshot may show other content and annotation positions do not map to the page.`,
+          message: surface === "monitor" ? t("warning.sharedScreen") : t("warning.sharedWindow"),
         });
       }
 
@@ -196,7 +201,7 @@ export class DisplayMediaScreenshotCapturer implements ScreenshotCapturer {
         maxPixels: options.maxPixels,
       });
       if (sizing.downscaled) {
-        warnings.push({ code: "downscaled", message: "The screenshot was downscaled to stay within the maximum image size." });
+        warnings.push({ code: "downscaled", message: t("warning.downscaled") });
       }
 
       const canvas = document.createElement("canvas");

@@ -1,3 +1,4 @@
+import type { EditorMessages } from "./i18n/editor";
 import type {
   Annotation,
   AnnotationTool,
@@ -102,6 +103,10 @@ export interface AnnotationEditorOptions {
   renderer?: AnnotationRenderer;
   onChange?: (annotations: Annotation[]) => void;
   onStateChange?: (state: AnnotationEditorState) => void;
+  /** Accessible labels and screen-reader announcements. Default: English (`en.editor`). */
+  messages?: EditorMessages;
+  /** BCP 47 tag used to format numbers in announcements. Default "en". */
+  locale?: string;
 }
 
 export interface AnnotationEditor {

@@ -31,12 +31,14 @@ export interface ShadowPortalProps {
   zIndex: number;
   theme: "light" | "dark";
   accentColor?: string;
+  lang: string;
+  dir: "ltr" | "rtl";
 }
 
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? () => {} : useLayoutEffect;
 
 /** Renders children into an isolated shadow root attached to a host element on document.body. */
-export function ShadowPortal({ children, zIndex, theme, accentColor }: ShadowPortalProps) {
+export function ShadowPortal({ children, zIndex, theme, accentColor, lang, dir }: ShadowPortalProps) {
   const [mount, setMount] = useState<{ host: HTMLElement; container: HTMLElement } | null>(null);
 
   useIsomorphicLayoutEffect(() => {
@@ -62,9 +64,11 @@ export function ShadowPortal({ children, zIndex, theme, accentColor }: ShadowPor
     if (!mount) return;
     mount.host.style.zIndex = String(zIndex);
     mount.container.setAttribute("data-theme", theme);
+    mount.container.setAttribute("lang", lang);
+    mount.container.setAttribute("dir", dir);
     if (accentColor) mount.container.style.setProperty("--pp-accent", accentColor);
     else mount.container.style.removeProperty("--pp-accent");
-  }, [mount, zIndex, theme, accentColor]);
+  }, [mount, zIndex, theme, accentColor, lang, dir]);
 
   if (!mount) return null;
   return createPortal(children, mount.container);

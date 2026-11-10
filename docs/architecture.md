@@ -123,6 +123,18 @@ Categories are configuration shared by the client and the server, so they live i
 
 In Next.js the list is declared in a plain module (e.g. `feedback.config.ts`) that imports from the root `pinpoint-feedback` entry. A Server Component layout passes the plain array as a prop across the client boundary, and the route handler imports the same module.
 
+## Internationalization
+
+All user-facing text lives in message catalogs in `packages/core/src/i18n`, one per consumer: `widget` (React UI), `editor` (annotation editor labels and aria-live announcements), `capture` (placeholder labels drawn into the screenshot and capture warnings) and `report` (Notion page body, written by the server). A `LocaleBundle` is `{ locale, dir, widget, editor, capture, report }`.
+
+- **Plain data.** Messages are strings with `{name}` placeholders or CLDR plural objects (`{ one, few, many, other }`, `#` = formatted count). No functions, so a Server Component layout can import a bundle and pass it to the client widget as a prop. `formatMessage` / `createTranslator` interpret them with `Intl.PluralRules` and `Intl.NumberFormat`; the English catalogs are `as const`, so `t(key, params)` requires exactly the placeholders the English text has.
+- **Entry points.** Built-in bundles are `packages/core/src/locales/<tag>.ts`. The core Vite build turns every file in that folder into its own entry (`dist/locales/<tag>.js`, exported as `@pinpoint-feedback/core/locales/*`), and `pinpoint-feedback/scripts/build.mjs` writes one `pinpoint-feedback/locales/<tag>` re-export per built file. A locale entry imports only `defineLocale` from a ~1 kB shared chunk, never the main core bundle or other languages.
+- **Selection.** The widget resolves its `locale` prop once per change: a single bundle is used as is; an array is negotiated with `negotiateLocale(tags + "en", detectPreferredLocales())` (`<html lang>`, then `navigator.languages`). The chosen bundle is completed with English for missing keys, then `messages` overrides are merged with `mergeLocale`. `lang` and `dir` are set on the shadow root's container.
+- **Core components take messages explicitly.** `createAnnotationEditor({ messages, locale })` and capturers (`new DomScreenshotCapturer({ messages, locale })`, or per call via `CaptureOptions`) default to English and never read global state. The widget passes its active bundle to both.
+- **Codes over text.** Submission errors are shown from `error.code` (the server's English message is only a fallback for unknown codes), and server validation issues are mapped by field path. Capture warnings are displayed from `code` + `count` with `formatCaptureWarning`; `warning.message` is fallback data for the server, which renders warnings in the report's language.
+- **RTL.** Widget styles use logical properties (`ms-*`, `pe-*`, `start-*`, `border-e`, `text-align: start`) and `rtl:` variants for directional icons. The editor forces `direction: ltr` on its own element so the canvas and annotation coordinates never mirror. `position` corners are physical because they refer to the viewport.
+- **Notion stays stable.** Category `label`s and priority option names are written to Notion unchanged in every language; `CategoryDefinition.labels` and the widget's `priority.*` messages only affect the UI.
+
 ## Server handler
 
 `createFeedbackRequestHandler(options)` returns a `(request: Request) => Promise<Response>` function and holds per-process state: the rate limiter, a cache of completed submission IDs, and in-flight deduplication. Create it **once** per process, at module scope, and reuse it.

@@ -200,7 +200,8 @@ describe("FeedbackWidget", () => {
       />,
     );
     await openDialog();
-    expect(shadow().getByText("1 cross-origin iframe couldn't be captured")).toBeTruthy();
+    expect(shadow().getByText(/^1 cross-origin iframe could not be captured/)).toBeTruthy();
+    expect(shadow().queryByText("1 cross-origin iframe couldn't be captured")).toBeNull();
     fillTitle("  Button misaligned ");
     fireEvent.change(shadow().getByLabelText(/Description/), { target: { value: "It overlaps" } });
     fireEvent.click(shadow().getByLabelText(/High/));
@@ -232,7 +233,7 @@ describe("FeedbackWidget", () => {
     act(() => options!.onProgress!({ phase: "sending", attempt: 1, maxAttempts: 3 }));
     expect(shadow().getAllByText("Uploading screenshots…").length).toBeGreaterThan(0);
     act(() => options!.onProgress!({ phase: "retrying", attempt: 1, maxAttempts: 3, retryInMs: 3000 }));
-    expect(shadow().getAllByText("Retrying in 3s…").length).toBeGreaterThan(0);
+    expect(shadow().getAllByText("Retrying in 3 seconds…").length).toBeGreaterThan(0);
     expect(shadow().queryByText("Sent to Notion")).toBeNull();
     expect(onSubmitted).not.toHaveBeenCalled();
 
@@ -255,7 +256,8 @@ describe("FeedbackWidget", () => {
     fillTitle("Checkout broken");
     fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
 
-    expect(await shadow().findByText("You appear to be offline.")).toBeTruthy();
+    expect(await shadow().findByText("Couldn't reach the server. Check your connection.")).toBeTruthy();
+    expect(shadow().queryByText("You appear to be offline.")).toBeNull();
     expect(shadow().getByText(/saved on this device and will be retried automatically/)).toBeTruthy();
     expect((shadow().getByLabelText("Title") as HTMLInputElement).value).toBe("Checkout broken");
     expect(shadow().queryByText("Sent to Notion")).toBeNull();
@@ -278,7 +280,7 @@ describe("FeedbackWidget", () => {
         code: "validation",
         message: "Some fields are invalid.",
         retryable: false,
-        details: [{ path: "title", message: "is too short" }],
+        details: { issues: [{ path: "title", message: "must be at most 5 characters" }] },
       },
     };
     const { client, submit } = makeClient([failure, OK]);
@@ -288,10 +290,10 @@ describe("FeedbackWidget", () => {
     fillTitle("x");
     fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
     expect(await shadow().findByText("Some fields are invalid.")).toBeTruthy();
-    expect(shadow().getByText("Title is too short")).toBeTruthy();
+    expect(shadow().getByText("Keep the title under 5 characters")).toBeTruthy();
     expect(shadow().queryByRole("button", { name: "Retry" })).toBeNull();
     fillTitle("A longer title");
-    expect(shadow().queryByText("Title is too short")).toBeNull();
+    expect(shadow().queryByText("Keep the title under 5 characters")).toBeNull();
     fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
     expect(await shadow().findByText("Sent to Notion")).toBeTruthy();
     expect(submit.mock.calls[1]![0].title).toBe("A longer title");
@@ -306,7 +308,7 @@ describe("FeedbackWidget", () => {
     const onError = vi.fn();
     render(<FeedbackWidget client={client} capturer={capturer} onError={onError} />);
     fireEvent.click(shadow().getByRole("button", { name: /feedback/i }));
-    expect(await shadow().findByText("Rendering the page failed.")).toBeTruthy();
+    expect(await shadow().findByText("The page couldn't be captured.")).toBeTruthy();
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ type: "capture" }));
     expect(shadow().getByRole("button", { name: /try screen capture/i })).toBeTruthy();
     fireEvent.click(shadow().getByRole("button", { name: /continue without screenshot/i }));
@@ -381,7 +383,7 @@ describe("FeedbackWidget", () => {
     pending.mockResolvedValue([{ submission: {} as never, files: {}, attempts: 1 }]);
     render(<FeedbackWidget client={client} />);
     await waitFor(() => expect(retryPending).toHaveBeenCalledTimes(1));
-    expect(await shadow().findByRole("button", { name: "Feedback, 1 unsent" })).toBeTruthy();
+    expect(await shadow().findByRole("button", { name: "Feedback, 1 unsent report" })).toBeTruthy();
     await act(async () => {
       window.dispatchEvent(new Event("online"));
     });

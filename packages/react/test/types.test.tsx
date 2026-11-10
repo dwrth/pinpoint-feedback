@@ -1,9 +1,16 @@
-import { defineCategories, type BuiltinCategoryId, type CategoryList } from "@pinpoint-feedback/core";
+import { defineCategories, defineLocale, en, type BuiltinCategoryId, type CategoryList } from "@pinpoint-feedback/core";
 import type { ComponentProps } from "react";
 import { describe, expectTypeOf, it } from "vitest";
 import { FeedbackProvider, FeedbackWidget, type FeedbackProviderProps } from "../src";
 
 const shared = defineCategories(["bug", { id: "perf", label: "Performance", color: "orange", emoji: "⚡" }, "feature"]);
+
+const rtl = defineLocale({ ...en, locale: "ar", dir: "rtl" });
+
+// @ts-expect-error a translation must contain every section
+defineLocale({ locale: "xx", dir: "ltr", widget: en.widget, editor: en.editor, capture: en.capture });
+// @ts-expect-error a translation must contain every key
+defineLocale({ ...en, locale: "xx", widget: { "launcher.label": "X" } });
 
 /** Never rendered: these lines exist for `tsc --noEmit`. */
 export function typeChecks() {
@@ -34,6 +41,19 @@ export function typeChecks() {
       </FeedbackProvider>
       {/* @ts-expect-error not in the shared list */}
       <FeedbackProvider categories={shared} defaultCategory="design" />
+
+      <FeedbackProvider locale={en} />
+      <FeedbackProvider locale={[en, rtl]} />
+      <FeedbackProvider messages={{ widget: { "dialog.title": "Report a problem" }, editor: { "pin.added": "Pin {number}!" } }} />
+      <FeedbackProvider messages={{ capture: { "warning.unknown": { other: "# missing" } } }} />
+      {/* @ts-expect-error unknown widget message key */}
+      <FeedbackProvider messages={{ widget: { "dialog.titel": "Typo" } }} />
+      {/* @ts-expect-error unknown section */}
+      <FeedbackProvider messages={{ footer: {} }} />
+      {/* @ts-expect-error messages are strings */}
+      <FeedbackProvider messages={{ widget: { "dialog.title": 42 } }} />
+      {/* @ts-expect-error locale must be a bundle, not a tag */}
+      <FeedbackProvider locale="de" />
 
       <FeedbackWidget categories={shared} defaultCategory="feature" />
       {/* @ts-expect-error not in the shared list */}

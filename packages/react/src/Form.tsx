@@ -1,7 +1,12 @@
-import { FEEDBACK_PRIORITIES, type CategoryDefinition, type FeedbackPriority } from "@pinpoint-feedback/core";
+import {
+  FEEDBACK_PRIORITIES,
+  type CategoryDefinition,
+  type FeedbackPriority,
+} from "@pinpoint-feedback/core";
 import { useId, type ReactNode, type Ref } from "react";
-import { CATEGORY_DOT, SEGMENTED_CATEGORIES_MAX } from "./categories";
-import { PRIORITY_LABELS, type Draft, type DraftField, type FieldErrors } from "./draft";
+import { CATEGORY_DOT, categoryLabel, SEGMENTED_CATEGORIES_MAX } from "./categories";
+import type { Draft, DraftField, FieldErrors } from "./draft";
+import { useI18n } from "./i18n";
 import { ChevronDownIcon, GlobeIcon } from "./icons";
 
 export interface FeedbackFormProps {
@@ -73,22 +78,24 @@ function CategoryField({
   disabled: boolean;
   onChange: (category: string) => void;
 }) {
+  const { t, locale } = useI18n();
   if (categories.length <= 1) return null;
+  const label = (category: CategoryDefinition) => categoryLabel(category, locale, t);
 
   if (categories.length > SEGMENTED_CATEGORIES_MAX) {
     const selected = categories.find((c) => c.id === value);
     return (
-      <Field id={id} label="Category">
+      <Field id={id} label={t("field.category")}>
         <div className="relative">
           {selected ? (
-            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+            <span className="pointer-events-none absolute inset-y-0 start-3 flex items-center">
               <CategoryDot category={selected} />
             </span>
           ) : null}
           <select
             id={id}
             name="category"
-            className={`${inputClass} appearance-none pr-8 ${selected?.color ? "pl-6.5" : ""}`}
+            className={`${inputClass} appearance-none pe-8 ${selected?.color ? "ps-6.5" : ""}`}
             value={selected ? value : ""}
             disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
@@ -96,13 +103,13 @@ function CategoryField({
             {selected ? null : <option value="" disabled />}
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.label}
+                {label(category)}
               </option>
             ))}
           </select>
           <ChevronDownIcon
             size={14}
-            className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-fg-subtle"
+            className="pointer-events-none absolute top-1/2 end-2.5 -translate-y-1/2 text-fg-subtle"
           />
         </div>
       </Field>
@@ -111,7 +118,7 @@ function CategoryField({
 
   return (
     <fieldset className="flex flex-col gap-1.5" disabled={disabled}>
-      <legend className="mb-1.5 text-xs font-medium text-fg">Category</legend>
+      <legend className="mb-1.5 text-xs font-medium text-fg">{t("field.category")}</legend>
       <div className="flex flex-wrap gap-1.5">
         {categories.map((category) => (
           <label
@@ -127,7 +134,7 @@ function CategoryField({
               onChange={() => onChange(category.id)}
             />
             <CategoryDot category={category} />
-            {category.label}
+            {label(category)}
           </label>
         ))}
       </div>
@@ -149,6 +156,7 @@ export function FeedbackForm({
   disabled,
   titleRef,
 }: FeedbackFormProps) {
+  const { t } = useI18n();
   const uid = useId();
   const ids = {
     title: `${uid}-title`,
@@ -162,7 +170,7 @@ export function FeedbackForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <Field id={ids.title} label="Title" error={errors.title}>
+      <Field id={ids.title} label={t("field.title")} error={errors.title}>
         <input
           ref={titleRef}
           id={ids.title}
@@ -171,7 +179,7 @@ export function FeedbackForm({
           required
           aria-required="true"
           autoComplete="off"
-          placeholder="What's wrong or what could be better?"
+          placeholder={t("field.titlePlaceholder")}
           className={inputClass}
           value={draft.title}
           disabled={disabled}
@@ -181,12 +189,12 @@ export function FeedbackForm({
         />
       </Field>
 
-      <Field id={ids.description} label="Description" hint="Optional" error={errors.description}>
+      <Field id={ids.description} label={t("field.description")} hint={t("field.optional")} error={errors.description}>
         <textarea
           id={ids.description}
           name="description"
           rows={4}
-          placeholder="Steps to reproduce, what you expected, what happened…"
+          placeholder={t("field.descriptionPlaceholder")}
           className={`${inputClass} min-h-24 resize-y`}
           value={draft.description}
           disabled={disabled}
@@ -205,7 +213,7 @@ export function FeedbackForm({
       />
 
       <fieldset className="flex flex-col gap-1.5" disabled={disabled}>
-        <legend className="mb-1.5 text-xs font-medium text-fg">Priority</legend>
+        <legend className="mb-1.5 text-xs font-medium text-fg">{t("field.priority")}</legend>
         <div className="grid grid-cols-4 gap-0.5 rounded-lg border border-line bg-muted p-0.5">
           {FEEDBACK_PRIORITIES.map((priority) => (
             <label
@@ -221,7 +229,7 @@ export function FeedbackForm({
                 onChange={() => onChange({ priority })}
               />
               <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${PRIORITY_DOT[priority]}`} />
-              {PRIORITY_LABELS[priority]}
+              {t(`priority.${priority}`)}
             </label>
           ))}
         </div>
@@ -229,7 +237,7 @@ export function FeedbackForm({
 
       {showReporterFields ? (
         <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-1 lg:grid-cols-2">
-          <Field id={ids.name} label="Name" hint="Optional" error={errors.name}>
+          <Field id={ids.name} label={t("field.name")} hint={t("field.optional")} error={errors.name}>
             <input
               id={ids.name}
               name="name"
@@ -243,7 +251,7 @@ export function FeedbackForm({
               {...errorProps(ids.name, errors.name)}
             />
           </Field>
-          <Field id={ids.email} label="Email" hint="Optional" error={errors.email}>
+          <Field id={ids.email} label={t("field.email")} hint={t("field.optional")} error={errors.email}>
             <input
               id={ids.email}
               name="email"
@@ -277,8 +285,8 @@ export function FeedbackForm({
 
       <div className="flex min-w-0 items-center gap-1.5 text-2xs text-fg-subtle">
         <GlobeIcon size={12} className="shrink-0" />
-        <span className="sr-only">Page URL:</span>
-        <span className="truncate font-mono" title={draft.metadata.url}>
+        <span className="sr-only">{t("field.pageUrl")}</span>
+        <span className="truncate font-mono" dir="ltr" title={draft.metadata.url}>
           {draft.metadata.url}
         </span>
       </div>

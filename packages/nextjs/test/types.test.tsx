@@ -1,4 +1,4 @@
-import { defineCategories, type BuiltinCategoryId, type CategoryList } from "@pinpoint-feedback/core";
+import { defineCategories, en, type BuiltinCategoryId, type CategoryList } from "@pinpoint-feedback/core";
 import type { ComponentProps } from "react";
 import { describe, expectTypeOf, it } from "vitest";
 import { FeedbackProvider, FeedbackWidget, type FeedbackProviderProps } from "../src/index";
@@ -34,6 +34,10 @@ export function typeChecks() {
       </FeedbackProvider>
       {/* @ts-expect-error not in the shared list */}
       <FeedbackProvider categories={shared} defaultCategory="design" />
+
+      <FeedbackProvider categories={shared} defaultCategory="perf" locale={[en]} messages={{ widget: { "launcher.label": "Report" } }} />
+      {/* @ts-expect-error unknown widget message key */}
+      <FeedbackProvider messages={{ widget: { "launcher.labl": "Report" } }} />
 
       <FeedbackWidget categories={shared} defaultCategory="feature" />
       {/* @ts-expect-error not in the shared list */}
