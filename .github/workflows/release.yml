@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every step but publish nothing (npm publish --dry-run)
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Check versions match the release tag
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          expected="${TAG#v}"
+          for dir in core server react nextjs pinpoint-feedback; do
+            version=$(node -p "require('./packages/$dir/package.json').version")
+            if [ "$version" != "$expected" ]; then
+              echo "::error::packages/$dir is $version but the release tag is $TAG"
+              exit 1
+            fi
+          done
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for name in @pinpoint-feedback/core @pinpoint-feedback/server @pinpoint-feedback/react @pinpoint-feedback/nextjs pinpoint-feedback; do
+            version=$(npm pkg get version -w "$name" | node -e "process.stdin.on('data', d => console.log(Object.values(JSON.parse(d))[0]))")
+            if npm view "$name@$version" version > /dev/null 2>&1; then
+              echo "$name@$version is already on npm, skipping"
+              continue
+            fi
+            npm publish -w "$name" --access public --provenance $DRY_RUN
+          done

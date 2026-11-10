@@ -3,15 +3,34 @@
   "version": "0.1.0",
   "description": "React feedback widget and annotation UI for Pinpoint Feedback.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dwrth/pinpoint-feedback.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/dwrth/pinpoint-feedback#readme",
+  "bugs": {
+    "url": "https://github.com/dwrth/pinpoint-feedback/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json"
   },

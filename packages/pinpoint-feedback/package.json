@@ -3,22 +3,65 @@
   "version": "0.1.0",
   "description": "Visual website feedback widget with screenshot annotation. Reports go straight into your Notion database.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dwrth/pinpoint-feedback.git",
+    "directory": "packages/pinpoint-feedback"
+  },
+  "homepage": "https://github.com/dwrth/pinpoint-feedback#readme",
+  "bugs": {
+    "url": "https://github.com/dwrth/pinpoint-feedback/issues"
+  },
+  "keywords": [
+    "feedback",
+    "bug-report",
+    "screenshot",
+    "annotation",
+    "notion",
+    "nextjs",
+    "react",
+    "widget"
+  ],
   "type": "module",
   "sideEffects": false,
-  "keywords": ["feedback", "bug-report", "screenshot", "annotation", "notion", "nextjs", "react", "widget"],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./core": { "types": "./dist/core.d.ts", "import": "./dist/core.js" },
-    "./server": { "types": "./dist/server.d.ts", "import": "./dist/server.js" },
-    "./react": { "types": "./dist/react.d.ts", "import": "./dist/react.js" },
-    "./nextjs": { "types": "./dist/nextjs.d.ts", "import": "./dist/nextjs.js" },
-    "./nextjs/server": { "types": "./dist/nextjs-server.d.ts", "import": "./dist/nextjs-server.js" },
-    "./locales/*": { "types": "./dist/locales/*.d.ts", "import": "./dist/locales/*.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./nextjs": {
+      "types": "./dist/nextjs.d.ts",
+      "import": "./dist/nextjs.js"
+    },
+    "./nextjs/server": {
+      "types": "./dist/nextjs-server.d.ts",
+      "import": "./dist/nextjs-server.js"
+    },
+    "./locales/*": {
+      "types": "./dist/locales/*.d.ts",
+      "import": "./dist/locales/*.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "node scripts/build.mjs"
   },
@@ -34,8 +77,14 @@
     "react-dom": ">=18.2.0"
   },
   "peerDependenciesMeta": {
-    "next": { "optional": true },
-    "react": { "optional": true },
-    "react-dom": { "optional": true }
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   }
 }
