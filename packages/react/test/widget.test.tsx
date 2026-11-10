@@ -343,7 +343,7 @@ describe("FeedbackWidget", () => {
     fireEvent.click(shadow().getByRole("button", { name: /feedback/i }));
     fireEvent.click(await shadow().findByRole("button", { name: /try screen capture/i }));
     await shadow().findByRole("dialog", {}, { timeout: 3000 });
-    expect(editors).toHaveLength(1);
+    await waitFor(() => expect(editors).toHaveLength(1));
   });
 
   it("returns to idle when the capture is cancelled", async () => {
