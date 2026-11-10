@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           languages. Passing a single bundle instead (`locale={de}`) pins the language.
         */}
         <FeedbackProvider
-          position="bottom-right"
+          position="bottom-left"
           theme="light"
           categories={categories}
           defaultCategory="bug"
