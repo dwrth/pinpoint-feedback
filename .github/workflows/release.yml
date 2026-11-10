@@ -33,6 +33,8 @@ jobs:
           node-version: lts/*
           cache: npm
           registry-url: https://registry.npmjs.org
+      - name: Use an npm version that supports trusted publishing
+        run: npm install -g npm@latest
       - run: npm ci
       - name: Check versions match the release tag
         if: github.event_name == 'release'
@@ -50,9 +52,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm (trusted publishing via GitHub OIDC)
         run: |
           for name in @pinpoint-feedback/core @pinpoint-feedback/server @pinpoint-feedback/react @pinpoint-feedback/nextjs pinpoint-feedback; do
             version=$(npm pkg get version -w "$name" | node -e "process.stdin.on('data', d => console.log(Object.values(JSON.parse(d))[0]))")
