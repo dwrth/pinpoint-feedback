@@ -6,6 +6,7 @@ import { CaptureError, isCaptureError, throwIfAborted } from "./errors";
 import { createCaptureFilter } from "./exclusion";
 import { scanCaptureLimitations, type CaptureLimitations, type ScannedImage } from "./limitations";
 import { captureTranslator, type CaptureLocaleOptions, type CaptureTranslate } from "./messages";
+import { suspendOffscreenMedia } from "./media";
 import { PLACEHOLDER_IMAGE_DATA_URL, replaceWithPlaceholder, type PlaceholderKind } from "./placeholder";
 import { computeCaptureScale } from "./scale";
 
@@ -52,6 +53,8 @@ interface RenderContext {
   shiftRoot: boolean;
   backgroundColor: string;
   state: RenderState;
+  /** Image URLs used only by elements outside the viewport; not downloaded. */
+  offscreenOnlyImages: Set<string>;
   t: CaptureTranslate;
   isCancelled: () => boolean;
 }
@@ -163,6 +166,10 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
     const t = captureTranslator(i18n);
     let cancelled = false;
     const state: RenderState = { failedImages: new Set(), videosNotCaptured: 0 };
+    const offscreenOnlyImages = new Set(
+      limitations.images.filter((image) => !image.visible).map((image) => normalizeUrl(image.url)),
+    );
+    let restoreMedia: (() => void) | undefined;
 
     try {
       const stickyOffsets = new Map<Element, Point>(
@@ -197,9 +204,12 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
         shiftRoot: doc.compatMode !== "BackCompat",
         backgroundColor: this.config.backgroundColor ?? resolveBackgroundColor(doc),
         state,
+        offscreenOnlyImages,
         t,
         isCancelled: () => cancelled || Boolean(signal?.aborted),
       };
+
+      restoreMedia = suspendOffscreenMedia(doc.documentElement, viewport);
 
       const { blob, fontFallback } = await raceCapture(
         this.renderWithFontFallback(doc.documentElement, context),
@@ -229,6 +239,7 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
       const reason = error instanceof Error ? error.message : String(error);
       throw new CaptureError("failed", `Screenshot capture failed: ${reason}`, { cause: error });
     } finally {
+      restoreMedia?.();
       for (const element of marked) element.removeAttribute(CAPTURE_MARK_ATTRIBUTE);
     }
   }
@@ -273,6 +284,7 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
 
   private async fetchImage(url: string, context: RenderContext, timeoutMs: number): Promise<string | false> {
     if (url.startsWith("data:")) return false;
+    if (context.offscreenOnlyImages.has(normalizeUrl(url))) return TRANSPARENT_PIXEL_DATA_URL;
     const fetchImpl = this.config.fetch ?? globalThis.fetch;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);

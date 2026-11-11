@@ -24,6 +24,7 @@ Details:
 - **Background** is the computed background color of `<html>`, then `<body>`, else white.
 - **Excluded elements** (the widget itself and anything with `data-pinpoint-ignore`) are left out of the clone.
 - **Timeouts**: 10 s per image request, 30 s for the whole capture.
+- **Off-screen media is skipped**: images used only outside the viewport aren't downloaded, and unloaded off-screen images (e.g. `loading="lazy"` below the fold) and videos don't delay the capture. This uses temporary property overrides on those elements while the capture runs; attributes, loading and events are untouched.
 - **Fonts**: if embedding web fonts makes rendering fail, the capture is retried without them and a `font` warning is added.
 
 Nothing to install, no permission prompt, and it works on every page you serve. The trade-off is that a web page cannot read everything it displays.
@@ -37,7 +38,7 @@ Content that DOM rasterisation can't reproduce is **never silently dropped**. Ea
 | Cross-origin or otherwise unreadable `<iframe>` (embedded video, maps, payment forms, third-party widgets) | iframe whose document can't be read | "Cross-origin iframe — content not captured" | `cross-origin-iframe` |
 | Tainted `<canvas>` (drew cross-origin data) | `toDataURL()` throws `SecurityError` | "Protected canvas — content not captured" | `tainted-canvas` |
 | Blank `<canvas>` (typically WebGL without `preserveDrawingBuffer`) | readable canvas with a nonzero size whose sampled pixels are all transparent | left as is (no placeholder: it may really be empty) | `blank-canvas` |
-| `<video>` | any visible video | current frame or poster if it can be drawn, otherwise "Video — frame not captured" | `video` |
+| `<video>` | any visible video | current frame for loaded videos played from an http(s) URL; "Video — frame not captured" for unloaded or `preload="none"` videos, camera/WebRTC streams (`srcObject`) and MediaSource/blob players (HLS, DASH) | `video` |
 | `<object>` / `<embed>` | any visible one | "Embedded object — content not captured" | `unknown` |
 | Image that failed to load (no CORS headers, unreachable, timed out) | fetch failed | hatched image | `cross-origin-image`, or `unknown` for same-origin |
 | Web fonts that couldn't be embedded | render failed with fonts | fallback font | `font` |

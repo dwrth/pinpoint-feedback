@@ -376,7 +376,7 @@ describe("DomScreenshotCapturer", () => {
     expect(clone?.style.getPropertyValue("position")).toBe("relative");
   });
 
-  it("reports images that fail to load and substitutes a hatched placeholder", async () => {
+  it("reports visible images that fail to load and skips downloading off-screen ones", async () => {
     stubLayout();
     document.body.innerHTML = `<img src="https://cdn.example.net/a.png"><img src="https://cdn.example.net/off.png" data-offscreen>`;
     const fetchStub = vi.fn(async () => {
@@ -390,7 +390,9 @@ describe("DomScreenshotCapturer", () => {
     });
 
     const result = await new DomScreenshotCapturer({ fetch: fetchStub as unknown as typeof fetch }).capture();
-    expect(sources).toEqual([PLACEHOLDER_IMAGE_DATA_URL, PLACEHOLDER_IMAGE_DATA_URL]);
+    expect(sources[0]).toBe(PLACEHOLDER_IMAGE_DATA_URL);
+    expect(sources[1]).toMatch(/^data:image\/gif;base64,/);
+    expect(fetchStub).toHaveBeenCalledTimes(1);
     expect(result.warnings).toEqual([expect.objectContaining({ code: "cross-origin-image", count: 1 })]);
   });
 
@@ -578,5 +580,28 @@ describe("getAccessibleFrameDocument (declared src)", () => {
     iframe.setAttribute("src", "https://third-party.example/embed");
     Object.defineProperty(iframe, "contentDocument", { value: document.implementation.createHTMLDocument("") });
     expect(getAccessibleFrameDocument(iframe)).toBeNull();
+  });
+});
+
+describe("DomScreenshotCapturer off-screen media", () => {
+  it("hides unloaded off-screen images from the load wait only while capturing", async () => {
+    const { DomScreenshotCapturer } = await import("../src/capture/index");
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const top = this.hasAttribute("data-offscreen") ? 5000 : 0;
+      return { x: 0, y: top, left: 0, top, right: 100, bottom: top + 100, width: 100, height: 100, toJSON: () => ({}) } as DOMRect;
+    });
+    document.body.innerHTML = `<img src="https://cdn.example.net/lazy.png" loading="lazy" data-offscreen>`;
+    const lazy = document.querySelector("img")!;
+    Object.defineProperty(lazy, "complete", { configurable: true, value: false });
+    let srcDuringCapture: string | undefined;
+    vi.mocked(domToBlob).mockImplementation(async () => {
+      srcDuringCapture = lazy.currentSrc;
+      return new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
+    });
+
+    await new DomScreenshotCapturer().capture();
+    expect(srcDuringCapture).toBe("");
+    expect(Object.prototype.hasOwnProperty.call(lazy, "currentSrc")).toBe(false);
+    expect(lazy.getAttribute("src")).toBe("https://cdn.example.net/lazy.png");
   });
 });
