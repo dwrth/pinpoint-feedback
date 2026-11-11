@@ -1,6 +1,6 @@
 {
   "name": "@pinpoint-feedback/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Framework-independent screenshot capture, annotation engine and submission client for Pinpoint Feedback.",
   "license": "MIT",
   "repository": {

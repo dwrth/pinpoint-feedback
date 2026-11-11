@@ -1,6 +1,6 @@
 {
   "name": "@pinpoint-feedback/nextjs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Next.js App Router integration for Pinpoint Feedback.",
   "license": "MIT",
   "repository": {
@@ -39,9 +39,9 @@
     "build": "vite build && tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@pinpoint-feedback/core": "0.1.1",
-    "@pinpoint-feedback/react": "0.1.1",
-    "@pinpoint-feedback/server": "0.1.1",
+    "@pinpoint-feedback/core": "0.1.2",
+    "@pinpoint-feedback/react": "0.1.2",
+    "@pinpoint-feedback/server": "0.1.2",
     "server-only": "^0.0.1"
   },
   "peerDependencies": {

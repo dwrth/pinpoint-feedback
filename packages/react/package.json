@@ -1,6 +1,6 @@
 {
   "name": "@pinpoint-feedback/react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "React feedback widget and annotation UI for Pinpoint Feedback.",
   "license": "MIT",
   "repository": {
@@ -35,7 +35,7 @@
     "build": "vite build && tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@pinpoint-feedback/core": "0.1.1"
+    "@pinpoint-feedback/core": "0.1.2"
   },
   "peerDependencies": {
     "react": ">=18.2.0",

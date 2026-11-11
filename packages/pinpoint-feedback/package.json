@@ -1,6 +1,6 @@
 {
   "name": "pinpoint-feedback",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Visual website feedback widget with screenshot annotation. Reports go straight into your Notion database.",
   "license": "MIT",
   "repository": {
@@ -66,10 +66,10 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
-    "@pinpoint-feedback/core": "0.1.1",
-    "@pinpoint-feedback/nextjs": "0.1.1",
-    "@pinpoint-feedback/react": "0.1.1",
-    "@pinpoint-feedback/server": "0.1.1"
+    "@pinpoint-feedback/core": "0.1.2",
+    "@pinpoint-feedback/nextjs": "0.1.2",
+    "@pinpoint-feedback/react": "0.1.2",
+    "@pinpoint-feedback/server": "0.1.2"
   },
   "peerDependencies": {
     "next": ">=14.2.0",
