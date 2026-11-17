@@ -1,5 +1,4 @@
 import {
-  ANNOTATION_COLORS,
   DEFAULT_STROKE_WIDTH,
   formatPercent,
   type AnnotationEditor,
@@ -24,7 +23,7 @@ import {
   UndoIcon,
   type IconProps,
 } from "./icons";
-import { useI18n, type WidgetTranslate } from "./i18n";
+import { useI18n } from "./i18n";
 
 export const TOOLS: { tool: AnnotationTool; key: string; Icon: ComponentType<IconProps> }[] = [
   { tool: "select", key: "V", Icon: PointerIcon },
@@ -47,47 +46,6 @@ const STROKE_PRESETS: { id: StrokePreset; base: number }[] = [
 export function strokeWidthsFor(scale: number) {
   const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
   return STROKE_PRESETS.map(({ id, base }) => ({ id, width: Math.max(1, Math.round(base * factor)) }));
-}
-
-type ColorName =
-  | "red"
-  | "orange"
-  | "amber"
-  | "yellow"
-  | "green"
-  | "emerald"
-  | "cyan"
-  | "blue"
-  | "indigo"
-  | "violet"
-  | "purple"
-  | "pink"
-  | "black"
-  | "white";
-
-const COLOR_NAMES: Record<string, ColorName> = {
-  "#ef4444": "red",
-  "#f97316": "orange",
-  "#f59e0b": "amber",
-  "#eab308": "yellow",
-  "#22c55e": "green",
-  "#10b981": "emerald",
-  "#06b6d4": "cyan",
-  "#3b82f6": "blue",
-  "#6366f1": "indigo",
-  "#8b5cf6": "violet",
-  "#a855f7": "purple",
-  "#ec4899": "pink",
-  "#000000": "black",
-  "#111111": "black",
-  "#18181b": "black",
-  "#111827": "black",
-  "#ffffff": "white",
-};
-
-function colorName(t: WidgetTranslate, color: string): string {
-  const name = COLOR_NAMES[color.toLowerCase()];
-  return name ? t(`color.${name}`) : color;
 }
 
 const btn =
@@ -163,31 +121,6 @@ export function Toolbar({ editor, state, scale, onRetake, disabled }: ToolbarPro
             <Icon />
           </ToolButton>
         ))}
-      </div>
-      <Divider />
-      <div role="group" aria-label={t("toolbar.color")} className="flex items-center gap-1 px-1">
-        {ANNOTATION_COLORS.map((color) => {
-          const selected = state?.color.toLowerCase() === color.toLowerCase();
-          const name = colorName(t, color);
-          return (
-            <button
-              key={color}
-              type="button"
-              aria-label={t("toolbar.colorOption", { color: name })}
-              aria-pressed={selected}
-              title={name}
-              disabled={off}
-              onClick={() => editor?.setColor(color)}
-              className={`grid size-6 shrink-0 place-items-center rounded-full transition-transform duration-150 hover:scale-110 disabled:opacity-40 ${selected ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
-            >
-              <span
-                aria-hidden="true"
-                className="size-4 rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/0.15)]"
-                style={{ backgroundColor: color }}
-              />
-            </button>
-          );
-        })}
       </div>
       <Divider />
       <div role="group" aria-label={t("toolbar.strokeWidth")} className="flex items-center gap-0.5">

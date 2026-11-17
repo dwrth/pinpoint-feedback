@@ -1,3 +1,5 @@
+import { DEFAULT_ANNOTATION_COLOR } from "./annotation/constants";
+
 export type CategoryColor =
   | "default"
   | "gray"
@@ -33,6 +35,25 @@ export const DEFAULT_CATEGORIES = [
   { id: "feature", label: "Feature request", color: "green", emoji: "✨" },
   { id: "other", label: "Other", color: "gray", emoji: "💬" },
 ] as const satisfies readonly CategoryDefinition[];
+
+/** Hex colors used to draw annotations for each category color; readable on light and dark screenshots. */
+export const CATEGORY_ANNOTATION_COLORS: Readonly<Record<CategoryColor, string>> = Object.freeze({
+  default: "#71717a",
+  gray: "#71717a",
+  brown: "#a16a3f",
+  orange: "#f97316",
+  yellow: "#eab308",
+  green: "#22c55e",
+  blue: "#3b82f6",
+  purple: "#a855f7",
+  pink: "#ec4899",
+  red: "#ef4444",
+});
+
+/** Annotation color for a category; categories without a color use the default annotation color. */
+export function categoryAnnotationColor(category: Pick<CategoryDefinition, "color"> | undefined): string {
+  return (category?.color && CATEGORY_ANNOTATION_COLORS[category.color]) || DEFAULT_ANNOTATION_COLOR;
+}
 
 export type BuiltinCategoryId = (typeof DEFAULT_CATEGORIES)[number]["id"];
 

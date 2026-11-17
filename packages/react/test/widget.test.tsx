@@ -466,6 +466,23 @@ describe("categories", () => {
     expect(dot(radios[2]!)).toBeNull();
   });
 
+  it("colors annotations with the active category and offers no color picker", async () => {
+    const { client } = makeClient();
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={custom} defaultCategory="perf" />);
+    await openDialog();
+    expect(editors[0]!.options.color).toBe("#f97316");
+    expect(shadow().queryByRole("group", { name: "Color" })).toBeNull();
+    const editor = editors[0]!.editor;
+    const arrow = shadow().getByRole("button", { name: "Arrow" }) as HTMLButtonElement;
+    await waitFor(() => expect(arrow.disabled).toBe(false));
+    expect(editor.setColor).not.toHaveBeenCalled();
+    fireEvent.click(shadow().getByRole("radio", { name: "Bug" }));
+    await waitFor(() => expect(editor.setColor).toHaveBeenLastCalledWith("#ef4444"));
+    fireEvent.click(shadow().getByRole("radio", { name: "Performance" }));
+    await waitFor(() => expect(editor.setColor).toHaveBeenLastCalledWith("#f97316"));
+    expect(editor.setAnnotations).toHaveBeenLastCalledWith([expect.objectContaining({ id: "a1", color: "#f97316" })]);
+  });
+
   it("submits the custom category id", async () => {
     const { client, submit } = makeClient([OK]);
     render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={custom} />);

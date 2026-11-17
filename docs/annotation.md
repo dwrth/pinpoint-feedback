@@ -150,7 +150,7 @@ The editor appends one element (`.pinpoint-annotation-editor`) that fills the co
 | `image` | `Blob \| HTMLImageElement \| ImageBitmap \| HTMLCanvasElement` | – | The original screenshot. Blobs are decoded with `createImageBitmap`, falling back to `<img>`. An `<img>` is awaited until loaded. Never modified. |
 | `initialAnnotations` | `Annotation[]` | `[]` | Starting annotations (cloned; pins renumbered). Not an undo step. |
 | `tool` | `AnnotationTool` | `"pin"` | Initial tool. |
-| `color` | `string` | `"#ef4444"` | Initial color (`DEFAULT_ANNOTATION_COLOR`). `ANNOTATION_COLORS` is the widget's palette. |
+| `color` | `string` | `"#ef4444"` | Initial color (`DEFAULT_ANNOTATION_COLOR`). The widget uses `categoryAnnotationColor()` of the selected category. |
 | `strokeWidth` | `number` | `6` | Initial stroke width in screenshot px (`DEFAULT_STROKE_WIDTH`). |
 | `minZoom` | `number` | `min(fitZoom × 0.5, 0.1)` | Lower zoom limit. |
 | `maxZoom` | `number` | `8` | Upper zoom limit. |

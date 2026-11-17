@@ -65,7 +65,7 @@ export const fakeAnnotations = [
 export function createFakeEditor(options: AnnotationEditorOptions): AnnotationEditor {
   let state: AnnotationEditorState = {
     tool: "select",
-    color: "#ef4444",
+    color: options.color ?? "#ef4444",
     strokeWidth: 6,
     zoom: 1,
     fitZoom: 1,

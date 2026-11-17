@@ -1,6 +1,6 @@
 import {
+  categoryAnnotationColor,
   createAnnotationEditor,
-  DEFAULT_ANNOTATION_COLOR,
   formatCaptureWarning,
   type EditorMessages,
   type AnnotationEditor,
@@ -62,8 +62,16 @@ type Status =
 
 const AUTO_CLOSE_MS = 4000;
 
-function useAnnotationEditor(image: Blob | undefined, scale: number, messages: EditorMessages, locale: string) {
+function useAnnotationEditor(
+  image: Blob | undefined,
+  scale: number,
+  messages: EditorMessages,
+  locale: string,
+  color: string,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const colorRef = useRef(color);
+  colorRef.current = color;
   const [editor, setEditor] = useState<AnnotationEditor | null>(null);
   const [state, setState] = useState<AnnotationEditorState | null>(null);
 
@@ -73,7 +81,7 @@ function useAnnotationEditor(image: Blob | undefined, scale: number, messages: E
     const instance = createAnnotationEditor({
       container,
       image,
-      color: DEFAULT_ANNOTATION_COLOR,
+      color: colorRef.current,
       strokeWidth: strokeWidthsFor(scale)[1]!.width,
       messages,
       locale,
@@ -88,6 +96,13 @@ function useAnnotationEditor(image: Blob | undefined, scale: number, messages: E
       setState(null);
     };
   }, [image, scale, messages, locale]);
+
+  useEffect(() => {
+    if (!editor || editor.getState().color === color) return;
+    editor.setColor(color);
+    const annotations = editor.getAnnotations();
+    if (annotations.some((a) => a.color !== color)) editor.setAnnotations(annotations.map((a) => ({ ...a, color })));
+  }, [editor, color]);
 
   return { containerRef, editor, state };
 }
@@ -149,6 +164,7 @@ export default function Dialog(props: DialogProps) {
     screenshot?.scale ?? 1,
     bundle.editor,
     locale,
+    categoryAnnotationColor(categories.find((c) => c.id === draft.category)),
   );
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [touched, setTouched] = useState<Partial<Record<DraftField, boolean>>>({});
