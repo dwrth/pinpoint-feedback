@@ -26,6 +26,11 @@ const formatDelta = (current, base) => {
 
 const warn = (pct) => (typeof pct === 'number' && pct < WARN_THRESHOLD ? ' ⚠️' : '');
 
+/** A file with nothing to measure (e.g. a re-export barrel) reports 0/0, whose pct is meaningless. */
+const measurable = (metric) => metric?.total !== 0;
+const isLow = (metric) => measurable(metric) && metric.pct < WARN_THRESHOLD;
+const fileCell = (metric) => (measurable(metric) ? formatPct(metric.pct) : '–');
+
 export function relativePath(file, root) {
   const normalized = file.replaceAll('\\', '/');
   if (!isAbsolute(file)) return normalized.replace(/^\.\//, '');
@@ -188,8 +193,8 @@ function coverageSection(coverage, baseline, changedFiles, root) {
     .sort()
     .map((file) => {
       const data = byPath.get(file);
-      const low = data.lines.pct < WARN_THRESHOLD || data.branches.pct < WARN_THRESHOLD;
-      return `| ${low ? '⚠️ ' : ''}\`${file}\` | ${formatPct(data.lines.pct)} | ${formatPct(data.branches.pct)} |`;
+      const low = isLow(data.lines) || isLow(data.branches);
+      return `| ${low ? '⚠️ ' : ''}\`${file}\` | ${fileCell(data.lines)} | ${fileCell(data.branches)} |`;
     });
   lines.push('', '**Changed files**', '');
   if (rows.length === 0) {

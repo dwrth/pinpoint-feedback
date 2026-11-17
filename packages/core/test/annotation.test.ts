@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Annotation, ArrowAnnotation, PinAnnotation, TextAnnotation } from "../src/types";
 import {
-  ANNOTATION_COLORS,
   AnnotationHistory,
   DEFAULT_ANNOTATION_COLOR,
   DEFAULT_STROKE_WIDTH,
@@ -39,10 +38,15 @@ const pin = (id: string, number: number, x = 0, y = 0): PinAnnotation => ({
 });
 
 describe("constants", () => {
-  it("exposes a palette with red first", () => {
-    expect(ANNOTATION_COLORS.length).toBeGreaterThanOrEqual(5);
-    expect(ANNOTATION_COLORS[0]).toBe(DEFAULT_ANNOTATION_COLOR);
-    for (const c of ANNOTATION_COLORS) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+  it("re-exports the annotation API from the barrel", async () => {
+    const barrel = await import("../src/annotation/index");
+    expect(barrel.DEFAULT_ANNOTATION_COLOR).toBe(DEFAULT_ANNOTATION_COLOR);
+    expect(barrel.createAnnotationEditor).toBeTypeOf("function");
+    expect(barrel).not.toHaveProperty("ANNOTATION_COLORS");
+  });
+
+  it("uses red as the default annotation color", () => {
+    expect(DEFAULT_ANNOTATION_COLOR).toBe("#ef4444");
     expect(DEFAULT_STROKE_WIDTH).toBeGreaterThan(0);
   });
 

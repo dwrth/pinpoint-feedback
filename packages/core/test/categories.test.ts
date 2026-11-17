@@ -1,6 +1,9 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { DEFAULT_ANNOTATION_COLOR } from "../src/annotation/constants";
 import {
+  CATEGORY_ANNOTATION_COLORS,
   CategoryConfigError,
+  categoryAnnotationColor,
   DEFAULT_CATEGORIES,
   defineCategories,
   resolveCategories,
@@ -36,5 +39,12 @@ describe("categories", () => {
 
   it("throws eagerly from defineCategories", () => {
     expect(() => defineCategories([{ id: "x", label: "" }])).toThrow(CategoryConfigError);
+  });
+
+  it("maps every category color to a hex annotation color, defaulting when uncolored", () => {
+    for (const hex of Object.values(CATEGORY_ANNOTATION_COLORS)) expect(hex).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(categoryAnnotationColor({ color: "purple" })).toBe("#a855f7");
+    expect(categoryAnnotationColor({})).toBe(DEFAULT_ANNOTATION_COLOR);
+    expect(categoryAnnotationColor(undefined)).toBe(DEFAULT_ANNOTATION_COLOR);
   });
 });

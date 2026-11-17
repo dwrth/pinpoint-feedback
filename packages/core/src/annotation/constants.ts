@@ -1,12 +1,3 @@
-export const ANNOTATION_COLORS: readonly string[] = Object.freeze([
-  "#ef4444",
-  "#f59e0b",
-  "#22c55e",
-  "#3b82f6",
-  "#a855f7",
-  "#111827",
-]);
-
 export const DEFAULT_ANNOTATION_COLOR = "#ef4444";
 export const DEFAULT_STROKE_WIDTH = 6;
 

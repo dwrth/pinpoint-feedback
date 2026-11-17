@@ -66,7 +66,7 @@ An entry is either a built-in id (`"bug"`, `"design"`, `"content"`, `"feature"`,
 | --- | --- | --- | --- |
 | `id` | `string` | yes | Sent with the report and checked by the server. |
 | `label` | `string` | yes | Shown in the widget and stored as the Notion `Category` option name. Trimmed before use. |
-| `color` | `CategoryColor` | no | Notion select color: `default`, `gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`. Used when the option is created, and as a dot next to the label in the widget. |
+| `color` | `CategoryColor` | no | Notion select color: `default`, `gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`. Used when the option is created, as a dot next to the label in the widget, and as the annotation color on the screenshot while the category is selected (uncolored categories draw in red). |
 | `emoji` | `string` | no | Icon of the summary callout on the Notion page. A default icon is used when omitted. |
 | `labels` | `Record<string, string>` | no | Widget labels per language tag, e.g. `{ de: "Leistung" }`. See [i18n](i18n.md#category-labels). |
 

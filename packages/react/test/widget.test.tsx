@@ -166,6 +166,36 @@ describe("FeedbackWidget", () => {
     await waitFor(() => expect(shadow().getByRole("button", { name: /reset zoom/i }).textContent).toBe("125%"));
   });
 
+  it("wires every toolbar button to the editor", async () => {
+    const { client } = makeClient();
+    const { capturer, capture } = makeCapturer();
+    render(<FeedbackWidget client={client} capturer={capturer} />);
+    await openDialog();
+    const editor = editors[0]!.editor;
+    const button = (name: string | RegExp) => shadow().getByRole("button", { name }) as HTMLButtonElement;
+    await waitFor(() => expect(button("Thick stroke").disabled).toBe(false));
+    act(() => (editor._set as (patch: object) => void)({ canUndo: true, canRedo: true, annotationCount: 1 }));
+
+    fireEvent.click(button("Thick stroke"));
+    expect(editor.setStrokeWidth).toHaveBeenCalledWith(10);
+    fireEvent.click(button("Undo"));
+    expect(editor.undo).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Redo"));
+    expect(editor.redo).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Clear annotations"));
+    expect(editor.clear).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Zoom out"));
+    expect(editor.zoomOut).toHaveBeenCalledTimes(1);
+    fireEvent.click(button(/reset zoom/i));
+    expect(editor.setZoom).toHaveBeenCalledWith(1);
+    fireEvent.click(button("Fit to view"));
+    expect(editor.fitToView).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Reset screenshot"));
+    expect(editor.reset).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Retake"));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
+  });
+
   it("requires a title before submitting", async () => {
     const { client, submit } = makeClient();
     const { capturer } = makeCapturer();
@@ -464,6 +494,23 @@ describe("categories", () => {
     const dot = (radio: HTMLInputElement) => radio.closest("label")!.querySelector('span[aria-hidden="true"]');
     expect(dot(radios[1]!)?.className).toContain("bg-(--pp-cat-orange)");
     expect(dot(radios[2]!)).toBeNull();
+  });
+
+  it("colors annotations with the active category and offers no color picker", async () => {
+    const { client } = makeClient();
+    render(<FeedbackWidget client={client} capturer={makeCapturer().capturer} categories={custom} defaultCategory="perf" />);
+    await openDialog();
+    expect(editors[0]!.options.color).toBe("#f97316");
+    expect(shadow().queryByRole("group", { name: "Color" })).toBeNull();
+    const editor = editors[0]!.editor;
+    const arrow = shadow().getByRole("button", { name: "Arrow" }) as HTMLButtonElement;
+    await waitFor(() => expect(arrow.disabled).toBe(false));
+    expect(editor.setColor).not.toHaveBeenCalled();
+    fireEvent.click(shadow().getByRole("radio", { name: "Bug" }));
+    await waitFor(() => expect(editor.setColor).toHaveBeenLastCalledWith("#ef4444"));
+    fireEvent.click(shadow().getByRole("radio", { name: "Performance" }));
+    await waitFor(() => expect(editor.setColor).toHaveBeenLastCalledWith("#f97316"));
+    expect(editor.setAnnotations).toHaveBeenLastCalledWith([expect.objectContaining({ id: "a1", color: "#f97316" })]);
   });
 
   it("submits the custom category id", async () => {
