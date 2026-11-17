@@ -166,6 +166,36 @@ describe("FeedbackWidget", () => {
     await waitFor(() => expect(shadow().getByRole("button", { name: /reset zoom/i }).textContent).toBe("125%"));
   });
 
+  it("wires every toolbar button to the editor", async () => {
+    const { client } = makeClient();
+    const { capturer, capture } = makeCapturer();
+    render(<FeedbackWidget client={client} capturer={capturer} />);
+    await openDialog();
+    const editor = editors[0]!.editor;
+    const button = (name: string | RegExp) => shadow().getByRole("button", { name }) as HTMLButtonElement;
+    await waitFor(() => expect(button("Thick stroke").disabled).toBe(false));
+    act(() => (editor._set as (patch: object) => void)({ canUndo: true, canRedo: true, annotationCount: 1 }));
+
+    fireEvent.click(button("Thick stroke"));
+    expect(editor.setStrokeWidth).toHaveBeenCalledWith(10);
+    fireEvent.click(button("Undo"));
+    expect(editor.undo).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Redo"));
+    expect(editor.redo).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Clear annotations"));
+    expect(editor.clear).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Zoom out"));
+    expect(editor.zoomOut).toHaveBeenCalledTimes(1);
+    fireEvent.click(button(/reset zoom/i));
+    expect(editor.setZoom).toHaveBeenCalledWith(1);
+    fireEvent.click(button("Fit to view"));
+    expect(editor.fitToView).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Reset screenshot"));
+    expect(editor.reset).toHaveBeenCalledTimes(1);
+    fireEvent.click(button("Retake"));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
+  });
+
   it("requires a title before submitting", async () => {
     const { client, submit } = makeClient();
     const { capturer } = makeCapturer();

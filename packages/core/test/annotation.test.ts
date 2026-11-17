@@ -38,6 +38,13 @@ const pin = (id: string, number: number, x = 0, y = 0): PinAnnotation => ({
 });
 
 describe("constants", () => {
+  it("re-exports the annotation API from the barrel", async () => {
+    const barrel = await import("../src/annotation/index");
+    expect(barrel.DEFAULT_ANNOTATION_COLOR).toBe(DEFAULT_ANNOTATION_COLOR);
+    expect(barrel.createAnnotationEditor).toBeTypeOf("function");
+    expect(barrel).not.toHaveProperty("ANNOTATION_COLORS");
+  });
+
   it("uses red as the default annotation color", () => {
     expect(DEFAULT_ANNOTATION_COLOR).toBe("#ef4444");
     expect(DEFAULT_STROKE_WIDTH).toBeGreaterThan(0);
