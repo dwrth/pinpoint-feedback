@@ -82,6 +82,21 @@ describe('ci-report', () => {
     expect(report).not.toContain('README.md');
   });
 
+  it('shows files without measurable lines as "–" and does not flag them', () => {
+    const report = buildReport({
+      coverage: {
+        ...coverage,
+        '/repo/packages/core/src/index.ts': {
+          lines: { total: 0, covered: 0, pct: 0 },
+          branches: { total: 0, covered: 0, pct: 0 },
+        },
+      },
+      changedFiles: ['packages/core/src/index.ts'],
+      root: '/repo',
+    });
+    expect(report).toContain('| `packages/core/src/index.ts` | – | – |');
+  });
+
   it('handles missing inputs', () => {
     const report = buildReport({ browserResults: null });
     expect(report).toContain('_No test results found._');
