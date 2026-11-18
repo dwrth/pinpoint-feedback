@@ -14,7 +14,7 @@ import type {
 } from "@pinpoint-feedback/core";
 import type { ReactNode } from "react";
 
-export type FeedbackWidgetPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
+export type FeedbackWidgetPosition = "bottom-right" | "bottom-left" | "bottom-center" | "top-right" | "top-left";
 export type FeedbackWidgetTheme = "light" | "dark" | "system";
 
 export type FeedbackWidgetError =

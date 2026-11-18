@@ -106,6 +106,15 @@ describe("FeedbackWidget", () => {
     expect(document.body.querySelector("button")).toBeNull();
   });
 
+  it("centers the button horizontally at the bottom", () => {
+    const { client } = makeClient();
+    render(<FeedbackWidget client={client} position="bottom-center" />);
+    const button = shadow().getByRole("button", { name: "Feedback" });
+    expect(button.className).toContain("left-1/2");
+    expect(button.className).toContain("-translate-x-1/2");
+    expect(button.className).toContain("bottom-4");
+  });
+
   it("applies the theme attribute and accent color", async () => {
     const { client } = makeClient();
     const { rerender } = render(<FeedbackWidget client={client} theme="dark" accentColor="#ff0066" />);
