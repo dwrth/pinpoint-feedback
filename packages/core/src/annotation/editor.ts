@@ -365,7 +365,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       imageSize: imageSize(),
     };
     renderer.render(ctx, visible, renderOptions);
-    drawResizeHandles();
+    drawResizeHandles(ctx);
   }
 
   function selectedResizeTarget(): { annotation: Annotation; bounds: Rect; handles: readonly ResizeHandle[] } | undefined {
@@ -385,23 +385,23 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     return handle ? { annotation: target.annotation, bounds: target.bounds, handle } : undefined;
   }
 
-  function drawResizeHandles(): void {
+  function drawResizeHandles(c: CanvasRenderingContext2D): void {
     const target = selectedResizeTarget();
-    if (!ctx || !target) return;
+    if (!target) return;
     const size = HANDLE_SCREEN_PX / view.zoom;
-    ctx.save();
-    ctx.scale(view.zoom, view.zoom);
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeStyle = SELECTION_COLOR;
-    ctx.lineWidth = 1.5 / view.zoom;
+    c.save();
+    c.scale(view.zoom, view.zoom);
+    c.fillStyle = "#ffffff";
+    c.strokeStyle = SELECTION_COLOR;
+    c.lineWidth = 1.5 / view.zoom;
     for (const handle of target.handles) {
-      const c = handlePosition(target.bounds, handle);
-      ctx.beginPath();
-      ctx.rect(c.x - size / 2, c.y - size / 2, size, size);
-      ctx.fill();
-      ctx.stroke();
+      const center = handlePosition(target.bounds, handle);
+      c.beginPath();
+      c.rect(center.x - size / 2, center.y - size / 2, size, size);
+      c.fill();
+      c.stroke();
     }
-    ctx.restore();
+    c.restore();
   }
 
   function scheduleRender(): void {
