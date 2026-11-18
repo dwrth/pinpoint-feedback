@@ -18,7 +18,7 @@ import { FeedbackProvider } from "pinpoint-feedback/nextjs";
 | Prop | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `endpoint` | `string` | `"/api/feedback"` | URL of the [server handler](server.md). The `/nextjs` entry falls back to `NEXT_PUBLIC_PINPOINT_ENDPOINT` before the default. |
-| `position` | `"bottom-right" \| "bottom-left" \| "top-right" \| "top-left"` | `"bottom-right"` | Page corner of the floating button. Physical, also in RTL languages. |
+| `position` | `"bottom-right" \| "bottom-left" \| "bottom-center" \| "top-right" \| "top-left"` | `"bottom-right"` | Placement of the floating button. Physical, also in RTL languages. |
 | `theme` | `"light" \| "dark" \| "system"` | `"system"` | See [Theming](#theming). |
 | `accentColor` | `string` (any CSS color) | `#5b5bd6` | Primary buttons, focus rings, selection, active tool. |
 | `projectId` | `string` | – | Stored with each report so several sites can share one database. The `/nextjs` entry falls back to `NEXT_PUBLIC_PINPOINT_PROJECT_ID`. The server's `projectId` option overrides it. |

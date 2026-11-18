@@ -27,10 +27,11 @@ type Phase =
   | { kind: "capture-error"; code?: string; triedDisplayMedia: boolean }
   | { kind: "open" };
 
-/** Page corners stay physical in RTL: they place the widget relative to the viewport, not to text. */
+/** Positions stay physical in RTL: they place the widget relative to the viewport, not to text. */
 const CORNER: Record<FeedbackWidgetPosition, string> = {
   "bottom-right": "bottom-4 right-4 sm:bottom-5 sm:right-5",
   "bottom-left": "bottom-4 left-4 sm:bottom-5 sm:left-5",
+  "bottom-center": "bottom-4 left-1/2 -translate-x-1/2 sm:bottom-5",
   "top-right": "top-4 right-4 sm:top-5 sm:right-5",
   "top-left": "top-4 left-4 sm:top-5 sm:left-5",
 };
@@ -38,6 +39,7 @@ const CORNER: Record<FeedbackWidgetPosition, string> = {
 const CARD_OFFSET: Record<FeedbackWidgetPosition, string> = {
   "bottom-right": "bottom-4 right-4 sm:bottom-18 sm:right-5",
   "bottom-left": "bottom-4 left-4 sm:bottom-18 sm:left-5",
+  "bottom-center": "bottom-4 left-1/2 -translate-x-1/2 sm:bottom-18",
   "top-right": "top-4 right-4 sm:top-18 sm:right-5",
   "top-left": "top-4 left-4 sm:top-18 sm:left-5",
 };
