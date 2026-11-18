@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnnotationEditor, AnnotationEditorOptions, AnnotationEditorState } from "../src/interfaces";
-import type { Annotation, PinAnnotation, TextAnnotation } from "../src/types";
+import type { Annotation, ArrowAnnotation, PinAnnotation, TextAnnotation } from "../src/types";
 import { createAnnotationEditor, screenToImage } from "../src/annotation/index";
 import { type RecordingContext, createRecordingContext } from "./annotation-helpers";
 
@@ -160,6 +160,7 @@ describe("createAnnotationEditor: tools", () => {
   it("places pins in image space at fit zoom", async () => {
     const { editor, wrapper, onChange } = await setup();
     click(wrapper, 100, 50);
+    editor.setTool("pin");
     click(wrapper, 300, 200);
     const list = editor.getAnnotations() as PinAnnotation[];
     expect(list.map((p) => [p.type, p.at, p.number])).toEqual([
@@ -259,6 +260,7 @@ describe("createAnnotationEditor: tools", () => {
     expect(text).toMatchObject({ type: "text", at: { x: 100, y: 50 }, text: "Hello\nworld" });
     expect(text!.fontSize).toBeGreaterThan(0);
 
+    editor.setTool("text");
     click(wrapper, 300, 200);
     ta = wrapper.querySelector("textarea")!;
     ta.value = "discard me";
@@ -287,10 +289,38 @@ describe("createAnnotationEditor: tools", () => {
     ta.dispatchEvent(new Event("blur"));
     expect(editor.getAnnotations()).toHaveLength(1);
 
+    editor.setTool("text");
     click(wrapper, 100, 100);
     wrapper.querySelector("textarea")!.value = "via tool";
     editor.setTool("pin");
     expect(editor.getAnnotations()).toHaveLength(2);
+  });
+
+  it.each<[Annotation["type"], [number, number][]]>([
+    ["arrow", [[100, 100], [160, 120]]],
+    ["freehand", [[100, 100], [120, 100], [140, 120]]],
+    ["rectangle", [[100, 100], [160, 140]]],
+    ["redaction", [[100, 100], [160, 140]]],
+  ])("returns to the select tool after placing a %s and selects it", async (tool, points) => {
+    const { editor, wrapper } = await setup({ pinNotes: false });
+    editor.setTool(tool);
+    drag(wrapper, points);
+    const [placed] = editor.getAnnotations();
+    expect(placed?.type).toBe(tool);
+    expect(editor.getState()).toMatchObject({ tool: "select", selectedId: placed?.id });
+  });
+
+  it("returns to the select tool after placing a pin or text", async () => {
+    const { editor, wrapper } = await setup();
+    click(wrapper, 100, 50);
+    expect(editor.getState()).toMatchObject({ tool: "select", selectedId: editor.getAnnotations()[0]?.id });
+
+    editor.setTool("text");
+    click(wrapper, 300, 200);
+    const ta = wrapper.querySelector("textarea")!;
+    ta.value = "Hi";
+    key(ta, "Enter");
+    expect(editor.getState()).toMatchObject({ tool: "select", selectedId: editor.getAnnotations()[1]?.id });
   });
 });
 
@@ -298,7 +328,9 @@ describe("createAnnotationEditor: select, move, delete", () => {
   it("selects, moves (one undo step) and deletes with renumbering", async () => {
     const { editor, wrapper } = await setup();
     click(wrapper, 50, 50);
+    editor.setTool("pin");
     click(wrapper, 150, 50);
+    editor.setTool("pin");
     click(wrapper, 250, 50);
     editor.setTool("select");
 
@@ -380,10 +412,326 @@ describe("createAnnotationEditor: select, move, delete", () => {
   });
 });
 
+describe("createAnnotationEditor: resize", () => {
+  const rect: Annotation = { id: "r", type: "rectangle", color: "#000", strokeWidth: 4, x: 100, y: 80, width: 100, height: 120 };
+
+  // Image space is at 0.5 zoom, so image (x, y) sits at screen (x / 2, y / 2).
+  const selectRect = async (wrapper: HTMLElement) => click(wrapper, 75, 40);
+
+  it("resizes a rectangle from its corner handle as one undo step", async () => {
+    const { editor, wrapper, onChange } = await setup({ tool: "select", initialAnnotations: [rect] });
+    await selectRect(wrapper);
+    expect(editor.getState().selectedId).toBe("r");
+
+    drag(wrapper, [
+      [100, 100],
+      [120, 110],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ x: 100, y: 80, width: 140, height: 140 });
+    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ width: 140, height: 140 })]);
+
+    editor.undo();
+    expect(editor.getAnnotations()[0]).toMatchObject({ x: 100, y: 80, width: 100, height: 120 });
+  });
+
+  it("stretches from an edge handle and keeps the opposite edges", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    await selectRect(wrapper);
+    drag(wrapper, [
+      [100, 70],
+      [130, 70],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ x: 100, y: 80, width: 160, height: 120 });
+  });
+
+  it("does not shrink a box below the minimum size", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    await selectRect(wrapper);
+    drag(wrapper, [
+      [100, 100],
+      [0, 0],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ x: 100, y: 80, width: 8, height: 8 });
+  });
+
+  it("cancels a resize drag on Escape", async () => {
+    const { editor, wrapper, onChange } = await setup({ tool: "select", initialAnnotations: [rect] });
+    await selectRect(wrapper);
+    onChange.mockClear();
+    pointer(wrapper, "pointerdown", 100, 100);
+    pointer(wrapper, "pointermove", 130, 130);
+    expect(editor.getAnnotations()[0]).toMatchObject({ width: 160 });
+    key(wrapper, "Escape");
+    pointer(wrapper, "pointerup", 130, 130);
+    expect(editor.getAnnotations()[0]).toMatchObject({ x: 100, y: 80, width: 100, height: 120 });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(editor.getState().canUndo).toBe(false);
+  });
+
+  it("shows a resize cursor over a handle of the selected annotation", async () => {
+    const { wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    await selectRect(wrapper);
+    pointer(wrapper, "pointermove", 100, 100);
+    expect(wrapper.style.cursor).toBe("nwse-resize");
+    pointer(wrapper, "pointermove", 300, 200);
+    expect(wrapper.style.cursor).toBe("grab");
+  });
+
+  it("stretches an arrow between its endpoints", async () => {
+    const arrow: Annotation = { id: "a", type: "arrow", color: "#000", strokeWidth: 4, from: { x: 100, y: 100 }, to: { x: 200, y: 100 } };
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [arrow] });
+    click(wrapper, 75, 50);
+    drag(wrapper, [
+      [100, 50],
+      [110, 50],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ from: { x: 100, y: 100 }, to: { x: 220, y: 100 } });
+  });
+
+  it("scales text from the opposite corner", async () => {
+    const text: TextAnnotation = { id: "t", type: "text", color: "#000", strokeWidth: 4, at: { x: 100, y: 100 }, text: "Hi", fontSize: 20 };
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [text] });
+    click(wrapper, 52, 52);
+    drag(wrapper, [
+      [60, 62.5],
+      [90, 75],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ at: { x: 100, y: 100 }, fontSize: 80 });
+  });
+
+  it("moves pins instead of resizing them", async () => {
+    const pin: PinAnnotation = { id: "p", type: "pin", color: "#000", strokeWidth: 4, at: { x: 200, y: 100 }, number: 1 };
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [pin] });
+    click(wrapper, 100, 50);
+    drag(wrapper, [
+      [100, 50],
+      [120, 50],
+    ]);
+    expect((editor.getAnnotations()[0] as PinAnnotation).at).toEqual({ x: 240, y: 100 });
+  });
+
+  it("leaves other annotations untouched while one is resized", async () => {
+    const pin: PinAnnotation = { id: "p", type: "pin", color: "#000", strokeWidth: 4, at: { x: 300, y: 200 }, number: 1 };
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect, pin] });
+    click(wrapper, 75, 40);
+    drag(wrapper, [
+      [100, 100],
+      [120, 110],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ width: 140, height: 140 });
+    expect(editor.getAnnotations()[1]).toEqual(pin);
+  });
+
+  it("ignores a resize drag shorter than 3 px", async () => {
+    const { editor, wrapper, onChange } = await setup({ tool: "select", initialAnnotations: [rect] });
+    click(wrapper, 75, 40);
+    onChange.mockClear();
+    drag(wrapper, [
+      [100, 100],
+      [101, 101],
+    ]);
+    expect(editor.getAnnotations()[0]).toMatchObject({ width: 100, height: 120 });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(editor.getState().canUndo).toBe(false);
+  });
+
+  it("reverts a resize when the pointer is cancelled", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    click(wrapper, 75, 40);
+    pointer(wrapper, "pointerdown", 100, 100);
+    pointer(wrapper, "pointermove", 130, 130);
+    pointer(wrapper, "pointercancel", 130, 130);
+    expect(editor.getAnnotations()[0]).toMatchObject({ width: 100, height: 120 });
+  });
+
+  it("shows the move cursor over a box's outline but not over its handles", async () => {
+    const { wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    click(wrapper, 75, 40);
+    pointer(wrapper, "pointermove", 100, 60);
+    pointer(wrapper, "pointermove", 101, 60);
+    expect(wrapper.style.cursor).toBe("move");
+  });
+
+  it("does not start editing when a single click lands on a text corner", async () => {
+    const text: TextAnnotation = { id: "t", type: "text", color: "#000", strokeWidth: 4, at: { x: 100, y: 100 }, text: "Hi", fontSize: 20 };
+    const { wrapper } = await setup({ tool: "select", initialAnnotations: [text] });
+    click(wrapper, 52, 52);
+    click(wrapper, 60, 62.5);
+    expect(wrapper.querySelector("textarea")).toBeNull();
+  });
+
+  it("does nothing on a double-click of a box", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    click(wrapper, 100, 60);
+    click(wrapper, 100, 60);
+    expect(wrapper.querySelector("textarea")).toBeNull();
+    expect(editor.getAnnotations()[0]).toMatchObject({ width: 100, height: 120 });
+  });
+
+  describe("handle drawing", () => {
+    const nextFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 30));
+    const rectsDrawnSince = async (start: number) => {
+      await nextFrame();
+      return contexts[0]!.calls.slice(start).filter((c) => c.name === "rect").length;
+    };
+
+    it("outlines a selected box and draws its eight handles", async () => {
+      const { wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+      await nextFrame();
+      const start = contexts[0]!.calls.length;
+      click(wrapper, 75, 40);
+      expect(await rectsDrawnSince(start)).toBe(1 + 1 + 8);
+    });
+
+    it("outlines a selected pin without handles", async () => {
+      const pin: PinAnnotation = { id: "p", type: "pin", color: "#000", strokeWidth: 4, at: { x: 200, y: 100 }, number: 1 };
+      const { wrapper } = await setup({ tool: "select", initialAnnotations: [pin] });
+      await nextFrame();
+      const start = contexts[0]!.calls.length;
+      click(wrapper, 100, 50);
+      expect(await rectsDrawnSince(start)).toBe(1);
+    });
+
+    it("draws four corner handles on selected text", async () => {
+      const text: TextAnnotation = { id: "t", type: "text", color: "#000", strokeWidth: 4, at: { x: 100, y: 100 }, text: "Hi", fontSize: 20 };
+      const { wrapper } = await setup({ tool: "select", initialAnnotations: [text] });
+      await nextFrame();
+      const start = contexts[0]!.calls.length;
+      click(wrapper, 52, 52);
+      expect(await rectsDrawnSince(start)).toBe(1 + 4);
+    });
+
+    it("outlines a freshly drawn stroke, which is selected", async () => {
+      const { wrapper } = await setup({ tool: "freehand" });
+      await nextFrame();
+      const start = contexts[0]!.calls.length;
+      drag(wrapper, [
+        [100, 100],
+        [140, 100],
+        [160, 120],
+      ]);
+      expect(await rectsDrawnSince(start)).toBe(1 + 8);
+    });
+
+    it("hides the handles while a text box is open for editing", async () => {
+      const text: TextAnnotation = { id: "t", type: "text", color: "#000", strokeWidth: 4, at: { x: 100, y: 100 }, text: "Hi", fontSize: 20 };
+      const { wrapper } = await setup({ tool: "select", initialAnnotations: [text] });
+      click(wrapper, 52, 52);
+      await nextFrame();
+      const start = contexts[0]!.calls.length;
+      click(wrapper, 52, 52);
+      expect(wrapper.querySelector("textarea")).not.toBeNull();
+      expect(await rectsDrawnSince(start)).toBe(0);
+    });
+  });
+});
+
+describe("createAnnotationEditor: edge cases", () => {
+  const rect: Annotation = { id: "r", type: "rectangle", color: "#000", strokeWidth: 4, x: 100, y: 80, width: 100, height: 120 };
+
+  it("constrains rectangles to squares and arrows to 45° steps while Shift is held", async () => {
+    const { editor, wrapper } = await setup({ tool: "rectangle" });
+    drag(
+      wrapper,
+      [
+        [100, 100],
+        [160, 120],
+      ],
+      { shiftKey: true },
+    );
+    expect(editor.getAnnotations()[0]).toMatchObject({ type: "rectangle", width: 120, height: 120 });
+
+    editor.setTool("arrow");
+    drag(
+      wrapper,
+      [
+        [100, 150],
+        [160, 160],
+      ],
+      { shiftKey: true },
+    );
+    const arrow = editor.getAnnotations()[1] as ArrowAnnotation;
+    expect(arrow.to.y).toBeCloseTo(arrow.from.y, 6);
+  });
+
+  it("removes a text box when its text is cleared and leaves an unchanged one alone", async () => {
+    const { editor, wrapper, onChange } = await setup({ tool: "text" });
+    click(wrapper, 50, 25);
+    wrapper.querySelector("textarea")!.value = "Hello";
+    key(wrapper.querySelector("textarea")!, "Enter");
+    expect(editor.getAnnotations()).toHaveLength(1);
+
+    editor.setTool("text");
+    click(wrapper, 52, 27);
+    onChange.mockClear();
+    key(wrapper.querySelector("textarea")!, "Enter");
+    expect(onChange).not.toHaveBeenCalled();
+
+    click(wrapper, 52, 27);
+    wrapper.querySelector("textarea")!.value = "";
+    key(wrapper.querySelector("textarea")!, "Enter");
+    expect(editor.getAnnotations()).toHaveLength(0);
+  });
+
+  it("opens the note of a selected pin with Enter, and ignores Enter on other items", async () => {
+    const pin: PinAnnotation = { id: "p", type: "pin", color: "#000", strokeWidth: 4, at: { x: 400, y: 300 }, number: 1 };
+    const { wrapper } = await setup({ tool: "select", initialAnnotations: [pin, rect] });
+    click(wrapper, 200, 150);
+    key(wrapper, "Enter");
+    expect(wrapper.querySelector("textarea")!.getAttribute("aria-label")).toMatch(/^Note for pin 1/);
+  });
+
+  it("ignores Enter on a selected box and deletes nothing when nothing is selected", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    key(wrapper, "Delete");
+    expect(editor.getAnnotations()).toHaveLength(1);
+    click(wrapper, 75, 40);
+    key(wrapper, "Enter");
+    expect(wrapper.querySelector("textarea")).toBeNull();
+  });
+
+  it("Escape deselects when nothing is being drawn", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    click(wrapper, 75, 40);
+    expect(editor.getState().selectedId).toBe("r");
+    key(wrapper, "Escape");
+    expect(editor.getState().selectedId).toBeUndefined();
+  });
+
+  it("restyles a selected box and ignores a zero stroke width", async () => {
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [rect] });
+    click(wrapper, 75, 40);
+    editor.setStrokeWidth(0);
+    expect(editor.getState().strokeWidth).toBe(6);
+    editor.setStrokeWidth(10);
+    editor.setColor("#00ff00");
+    expect(editor.getAnnotations()[0]).toMatchObject({ strokeWidth: 10, color: "#00ff00" });
+  });
+
+  it("keeps a selected redaction black when its colour is changed", async () => {
+    const redaction: Annotation = { id: "x", type: "redaction", color: "#000", strokeWidth: 4, x: 100, y: 80, width: 100, height: 120 };
+    const { editor, wrapper } = await setup({ tool: "select", initialAnnotations: [redaction] });
+    click(wrapper, 75, 70);
+    editor.setColor("#00ff00");
+    expect(editor.getAnnotations()[0]).toMatchObject({ color: "#000" });
+  });
+
+  it("ignores undo, redo, clear, reset and delete when there is nothing to do", async () => {
+    const { editor, onChange } = await setup();
+    editor.undo();
+    editor.redo();
+    editor.clear();
+    editor.deleteSelected();
+    editor.reset();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
 describe("createAnnotationEditor: history, zoom and keyboard", () => {
   it("supports undo/redo shortcuts, clear and reset", async () => {
     const { editor, wrapper, onChange } = await setup();
     click(wrapper, 50, 50);
+    editor.setTool("pin");
     click(wrapper, 60, 60);
     key(wrapper, "z", { ctrlKey: true });
     expect(editor.getAnnotations()).toHaveLength(1);
@@ -434,6 +782,7 @@ describe("createAnnotationEditor: history, zoom and keyboard", () => {
 
     editor.undo();
     wheel(wrapper, { deltaX: 20, deltaY: 10, clientX: 0, clientY: 0 });
+    editor.setTool("pin");
     click(wrapper, 200, 100);
     const panned = (editor.getAnnotations()[0] as PinAnnotation).at;
     expect(panned.x).toBeCloseTo(before.x + 20 / zoom, 6);
@@ -592,6 +941,7 @@ describe("createAnnotationEditor: pin notes", () => {
     expect(editor.getAnnotations()).toHaveLength(1);
     expect((editor.getAnnotations()[0] as PinAnnotation).note).toBeUndefined();
 
+    editor.setTool("pin");
     click(wrapper, 300, 50);
     noteInput(wrapper)!.dispatchEvent(new FocusEvent("blur"));
     expect(noteInput(wrapper)).toBeNull();
@@ -601,17 +951,16 @@ describe("createAnnotationEditor: pin notes", () => {
     expect(editor.getAnnotations()).toHaveLength(1);
   });
 
-  it("clicking elsewhere with the pin tool commits the note and places the next pin", async () => {
+  it("clicking elsewhere saves the note and leaves the select tool active", async () => {
     const { editor, wrapper } = await setup();
     click(wrapper, 100, 50);
+    const pinId = editor.getAnnotations()[0]?.id;
     noteInput(wrapper)!.value = "first";
     click(wrapper, 300, 150);
-    const pins = editor.getAnnotations() as PinAnnotation[];
-    expect(pins.map((p) => [p.number, p.note])).toEqual([
-      [1, "first"],
-      [2, undefined],
-    ]);
-    expect(noteInput(wrapper)!.getAttribute("aria-label")).toMatch(/pin 2/);
+    expect(editor.getAnnotations()).toHaveLength(1);
+    expect(editor.getAnnotations()[0]).toMatchObject({ id: pinId, note: "first" });
+    expect(editor.getState()).toMatchObject({ tool: "select", editingText: false });
+    expect(noteInput(wrapper)).toBeNull();
   });
 
   it("Mod+Z in an untouched note undoes the pin", async () => {

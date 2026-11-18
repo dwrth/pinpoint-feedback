@@ -18,6 +18,8 @@ import {
 } from "./constants";
 import {
   type GeometryOptions,
+  type Rect,
+  type ResizeHandle,
   type ViewTransform,
   clampPan,
   clampZoom,
@@ -26,10 +28,14 @@ import {
   distance,
   findAnnotationAt,
   fitView,
+  geometryBounds,
+  handlePosition,
   imageToScreen,
   nextPinNumber,
   normalizeRect,
   renumberPins,
+  resizeAnnotation,
+  resizeHandlesFor,
   resolveZoomLimits,
   screenToImage,
   simplifyPath,
@@ -44,6 +50,16 @@ type Gesture =
   | { kind: "draw"; pointerId: number; start: Point; draft: Annotation }
   | { kind: "click"; pointerId: number; startScreen: Point; startImage: Point; hadEditor: boolean }
   | { kind: "move"; pointerId: number; startImage: Point; startScreen: Point; original: Annotation; before: Annotation[]; moved: boolean }
+  | {
+      kind: "resize";
+      pointerId: number;
+      startScreen: Point;
+      handle: ResizeHandle;
+      original: Annotation;
+      bounds: Rect;
+      before: Annotation[];
+      moved: boolean;
+    }
   | { kind: "pan"; pointerId: number; last: Point }
   | { kind: "pinch"; ids: [number, number]; startDist: number; startZoom: number; anchor: Point };
 
@@ -69,6 +85,19 @@ const NOTE_GAP = 8;
 const NOTE_MARGIN = 4;
 
 const DOUBLE_CLICK_MS = 400;
+
+const MIN_SHAPE_SCREEN_PX = 4;
+const HANDLE_SCREEN_PX = 8;
+const HANDLE_CURSORS: Record<ResizeHandle, string> = {
+  nw: "nwse-resize",
+  se: "nwse-resize",
+  ne: "nesw-resize",
+  sw: "nesw-resize",
+  n: "ns-resize",
+  s: "ns-resize",
+  e: "ew-resize",
+  w: "ew-resize",
+};
 
 type AnnotationAction = "added" | "moved" | "deleted";
 
@@ -183,6 +212,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
   const pointers = new Map<number, Point>();
   let spaceHeld = false;
   let hoverHit = false;
+  let hoverHandle: ResizeHandle | undefined;
   let textEditor: TextEditorState | NoteEditorState | null = null;
   let lastClick: { time: number; point: Point } | null = null;
   let lastPinClick: { time: number; id: string } | null = null;
@@ -270,6 +300,16 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     if (selectedId !== undefined && !annotations.some((a) => a.id === selectedId)) selectedId = undefined;
   }
 
+  /** Adds a newly placed annotation, then hands the canvas back to the select tool with it selected. */
+  function placeAnnotation(a: Annotation, message: string): void {
+    tool = "select";
+    selectedId = a.id;
+    hoverHit = false;
+    hoverHandle = undefined;
+    updateCursor();
+    commit([...annotations, a], message);
+  }
+
   function commit(next: Annotation[], message?: string): void {
     history.record(annotations);
     annotations = renumberPins(next);
@@ -325,6 +365,43 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       imageSize: imageSize(),
     };
     renderer.render(ctx, visible, renderOptions);
+    drawResizeHandles(ctx);
+  }
+
+  function selectedResizeTarget(): { annotation: Annotation; bounds: Rect; handles: readonly ResizeHandle[] } | undefined {
+    if (tool !== "select" || selectedId === undefined || textEditor) return undefined;
+    const annotation = annotations.find((a) => a.id === selectedId);
+    if (!annotation) return undefined;
+    const bounds = geometryBounds(annotation, geometryOptions());
+    const handles = resizeHandlesFor(annotation, bounds);
+    if (handles.length === 0) return undefined;
+    return { annotation, bounds, handles };
+  }
+
+  function resizeTargetAt(p: Point, tolerance: number): { annotation: Annotation; bounds: Rect; handle: ResizeHandle } | undefined {
+    const target = selectedResizeTarget();
+    if (!target) return undefined;
+    const handle = target.handles.find((h) => distance(p, handlePosition(target.bounds, h)) <= tolerance);
+    return handle ? { annotation: target.annotation, bounds: target.bounds, handle } : undefined;
+  }
+
+  function drawResizeHandles(c: CanvasRenderingContext2D): void {
+    const target = selectedResizeTarget();
+    if (!target) return;
+    const size = HANDLE_SCREEN_PX / view.zoom;
+    c.save();
+    c.scale(view.zoom, view.zoom);
+    c.fillStyle = "#ffffff";
+    c.strokeStyle = SELECTION_COLOR;
+    c.lineWidth = 1.5 / view.zoom;
+    for (const handle of target.handles) {
+      const center = handlePosition(target.bounds, handle);
+      c.beginPath();
+      c.rect(center.x - size / 2, center.y - size / 2, size, size);
+      c.fill();
+      c.stroke();
+    }
+    c.restore();
   }
 
   function scheduleRender(): void {
@@ -345,8 +422,9 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     let cursor: string;
     if (gesture?.kind === "pan" || gesture?.kind === "pinch") cursor = "grabbing";
     else if (gesture?.kind === "move") cursor = "move";
+    else if (gesture?.kind === "resize") cursor = HANDLE_CURSORS[gesture.handle];
     else if (spaceHeld) cursor = "grab";
-    else if (tool === "select") cursor = hoverHit ? "move" : "grab";
+    else if (tool === "select") cursor = hoverHandle ? HANDLE_CURSORS[hoverHandle] : hoverHit ? "move" : "grab";
     else if (tool === "text") cursor = "text";
     else cursor = "crosshair";
     if (wrapper.style.cursor !== cursor) wrapper.style.cursor = cursor;
@@ -660,7 +738,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         text,
         fontSize: ed.fontSize,
       };
-      commit([...annotations, annotation], t("text.added"));
+      placeAnnotation(annotation, t("text.added"));
     }
     scheduleRender();
     emitState();
@@ -714,7 +792,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     const g = gesture;
     if (!g) return;
     gesture = null;
-    if (g.kind === "move" && g.moved) annotations = g.before;
+    if ((g.kind === "move" || g.kind === "resize") && g.moved) annotations = g.before;
     if (g.kind !== "pinch") release(g.pointerId);
     updateCursor();
     scheduleRender();
@@ -778,6 +856,20 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     const base = { id: createId(), color, strokeWidth };
     switch (tool) {
       case "select": {
+        const resize = resizeTargetAt(ip, hitTolerance(e.pointerType));
+        if (resize) {
+          gesture = {
+            kind: "resize",
+            pointerId: e.pointerId,
+            startScreen: p,
+            handle: resize.handle,
+            original: resize.annotation,
+            bounds: resize.bounds,
+            before: annotations,
+            moved: false,
+          };
+          break;
+        }
         const hit = findAnnotationAt(annotations, ip, hitTolerance(e.pointerType), geometryOptions());
         if (hit) {
           selectedId = hit.id;
@@ -872,9 +964,13 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     const g = gesture;
     if (!g) {
       if (tool === "select" && !spaceHeld && e.target !== textEditor?.el) {
-        const hit = !!findAnnotationAt(annotations, screenToImage(p, view), hitTolerance(e.pointerType), geometryOptions());
-        if (hit !== hoverHit) {
+        const ip = screenToImage(p, view);
+        const tolerance = hitTolerance(e.pointerType);
+        const hit = !!findAnnotationAt(annotations, ip, tolerance, geometryOptions());
+        const handle = resizeTargetAt(ip, tolerance)?.handle;
+        if (hit !== hoverHit || handle !== hoverHandle) {
           hoverHit = hit;
+          hoverHandle = handle;
           updateCursor();
         }
       }
@@ -909,13 +1005,22 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         scheduleRender();
         return;
       }
+      case "resize": {
+        if (!g.moved && distance(p, g.startScreen) < 3) return;
+        g.moved = true;
+        const ip = clampToImage(screenToImage(p, view));
+        const resized = resizeAnnotation(g.original, g.bounds, g.handle, ip, MIN_SHAPE_SCREEN_PX / view.zoom);
+        annotations = g.before.map((a) => (a.id === g.original.id ? resized : a));
+        scheduleRender();
+        return;
+      }
       case "click":
         return;
     }
   }
 
   function finishDraw(draft: Annotation): void {
-    const minScreen = 4;
+    const minScreen = MIN_SHAPE_SCREEN_PX;
     switch (draft.type) {
       case "freehand": {
         const first = draft.points[0];
@@ -923,20 +1028,20 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
           return;
         }
         const points = simplifyPath(draft.points, 0.6 / view.zoom);
-        commit([...annotations, { ...draft, points }], t("drawing.added"));
+        placeAnnotation({ ...draft, points }, t("drawing.added"));
         return;
       }
       case "arrow":
         if (distance(draft.from, draft.to) * view.zoom < minScreen) return;
-        commit([...annotations, draft], t("arrow.added"));
+        placeAnnotation(draft, t("arrow.added"));
         return;
       case "rectangle":
         if (draft.width * view.zoom < minScreen || draft.height * view.zoom < minScreen) return;
-        commit([...annotations, draft], t("rectangle.added"));
+        placeAnnotation(draft, t("rectangle.added"));
         return;
       case "redaction":
         if (draft.width * view.zoom < minScreen || draft.height * view.zoom < minScreen) return;
-        commit([...annotations, draft], t("redaction.added"));
+        placeAnnotation(draft, t("redaction.added"));
         return;
       default:
         return;
@@ -952,6 +1057,12 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       return true;
     }
     return false;
+  }
+
+  function editOnDoubleClick(id: string): void {
+    const target = annotations.find((a) => a.id === id);
+    if (target?.type === "text") openTextEditor(target.at, target);
+    else if (target?.type === "pin") openNoteEditor(target);
   }
 
   function onPointerUp(e: PointerEvent): void {
@@ -980,9 +1091,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
           emitChange();
           announce(describeAction(t, g.original, "moved"));
         } else if (isDoubleClick(p)) {
-          const target = annotations.find((a) => a.id === g.original.id);
-          if (target?.type === "text") openTextEditor(target.at, target);
-          else if (target?.type === "pin") openNoteEditor(target);
+          editOnDoubleClick(g.original.id);
         }
         break;
       case "click": {
@@ -1001,7 +1110,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
             at: g.startImage,
             number: nextPinNumber(annotations),
           };
-          commit([...annotations, pin], describeAction(t, pin, "added"));
+          placeAnnotation(pin, describeAction(t, pin, "added"));
           if (pinNotes) openNoteEditor(pin);
         } else if (tool === "text") {
           const hit = findAnnotationAt(annotations, g.startImage, hitTolerance(e.pointerType), geometryOptions());
@@ -1010,6 +1119,14 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         }
         break;
       }
+      case "resize":
+        if (g.moved) {
+          history.record(g.before);
+          emitChange();
+        } else if (isDoubleClick(p)) {
+          editOnDoubleClick(g.original.id);
+        }
+        break;
       case "pan":
         break;
     }
@@ -1207,6 +1324,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       tool = next;
       if (tool !== "select") selectedId = undefined;
       hoverHit = false;
+      hoverHandle = undefined;
       updateCursor();
       scheduleRender();
       emitState();

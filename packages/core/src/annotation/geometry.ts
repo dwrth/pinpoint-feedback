@@ -1,5 +1,5 @@
-import type { Annotation, PinAnnotation, Point, RectangleAnnotation, Size } from "../types";
-import { DEFAULT_MAX_ZOOM, MIN_PIN_RADIUS, TEXT_LINE_HEIGHT, textFont } from "./constants";
+import type { Annotation, PinAnnotation, Point, RectangleAnnotation, Size, TextAnnotation } from "../types";
+import { DEFAULT_MAX_ZOOM, MIN_PIN_RADIUS, MIN_TEXT_FONT_SIZE, TEXT_LINE_HEIGHT, textFont } from "./constants";
 
 /** Maps screenshot pixels to container CSS pixels: screen = image * zoom + pan. */
 export interface ViewTransform {
@@ -188,25 +188,123 @@ export function annotationBounds(a: Annotation, options: GeometryOptions = {}): 
     }
     case "freehand": {
       if (a.points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      for (const p of a.points) {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      }
-      return { x: minX - half, y: minY - half, width: maxX - minX + a.strokeWidth, height: maxY - minY + a.strokeWidth };
+      const g = pointsBounds(a.points);
+      return { x: g.x - half, y: g.y - half, width: g.width + a.strokeWidth, height: g.height + a.strokeWidth };
     }
     default:
       return { x: 0, y: 0, width: 0, height: 0 };
   }
 }
 
+function pointsBounds(points: readonly Point[]): Rect {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
 export function arrowHeadLength(strokeWidth: number): number {
   return Math.max(10, strokeWidth * 3.5 + 6);
+}
+
+/** Bounds of the drawn geometry without stroke padding. Resize handles sit on this box. */
+export function geometryBounds(a: Annotation, options: GeometryOptions = {}): Rect {
+  switch (a.type) {
+    case "pin": {
+      const r = options.pinRadius ?? MIN_PIN_RADIUS;
+      return { x: a.at.x - r, y: a.at.y - r, width: r * 2, height: r * 2 };
+    }
+    case "text":
+      return textBounds(a, options.measureText);
+    case "rectangle":
+    case "redaction": {
+      const n = normalizeRectangle(a);
+      return { x: n.x, y: n.y, width: n.width, height: n.height };
+    }
+    case "arrow":
+      return normalizeRect(a.from, a.to);
+    case "freehand":
+      return a.points.length === 0 ? { x: 0, y: 0, width: 0, height: 0 } : pointsBounds(a.points);
+  }
+}
+
+export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+const ALL_HANDLES: readonly ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+const CORNER_HANDLES: readonly ResizeHandle[] = ["nw", "ne", "se", "sw"];
+
+/**
+ * Pins have no size to change. Text scales with its corners; everything else stretches on all eight handles.
+ * A straight arrow has a zero-width or zero-height box, so only the handles along its extent are offered.
+ */
+export function resizeHandlesFor(a: Annotation, bounds: Rect): readonly ResizeHandle[] {
+  if (a.type === "pin") return [];
+  const candidates = a.type === "text" ? CORNER_HANDLES : ALL_HANDLES;
+  const hasWidth = bounds.width > 0;
+  const hasHeight = bounds.height > 0;
+  return candidates.filter((h) => (hasWidth || !(h.includes("e") || h.includes("w"))) && (hasHeight || !(h.includes("n") || h.includes("s"))));
+}
+
+export function handlePosition(bounds: Rect, handle: ResizeHandle): Point {
+  const x = handle.includes("w") ? bounds.x : handle.includes("e") ? bounds.x + bounds.width : bounds.x + bounds.width / 2;
+  const y = handle.includes("n") ? bounds.y : handle.includes("s") ? bounds.y + bounds.height : bounds.y + bounds.height / 2;
+  return { x, y };
+}
+
+/** Moves the edges named by `handle` to `pointer`; the opposite edges stay put and no side shrinks below `minSize`. */
+export function resizeRect(bounds: Rect, handle: ResizeHandle, pointer: Point, minSize: number): Rect {
+  let left = bounds.x;
+  let right = bounds.x + bounds.width;
+  let top = bounds.y;
+  let bottom = bounds.y + bounds.height;
+  if (handle.includes("w")) left = Math.min(pointer.x, right - minSize);
+  if (handle.includes("e")) right = Math.max(pointer.x, left + minSize);
+  if (handle.includes("n")) top = Math.min(pointer.y, bottom - minSize);
+  if (handle.includes("s")) bottom = Math.max(pointer.y, top + minSize);
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/**
+ * Resizes `a` by dragging `handle` to `pointer`, starting from `bounds` (see `geometryBounds`).
+ * Rectangles and redactions take the new box; arrows and freehand strokes are stretched into it.
+ * Text scales uniformly from the corner opposite the handle.
+ */
+export function resizeAnnotation(a: Annotation, bounds: Rect, handle: ResizeHandle, pointer: Point, minSize: number): Annotation {
+  if (a.type === "pin") return a;
+  if (a.type === "text") return resizeText(a, bounds, handle, pointer);
+  const next = resizeRect(bounds, handle, pointer, minSize);
+  if (a.type === "rectangle" || a.type === "redaction") return { ...a, ...next };
+  const sx = bounds.width > 0 ? next.width / bounds.width : 1;
+  const sy = bounds.height > 0 ? next.height / bounds.height : 1;
+  const map = (p: Point): Point => ({ x: next.x + (p.x - bounds.x) * sx, y: next.y + (p.y - bounds.y) * sy });
+  if (a.type === "arrow") return { ...a, from: map(a.from), to: map(a.to) };
+  return { ...a, points: a.points.map(map) };
+}
+
+function resizeText(a: TextAnnotation, bounds: Rect, handle: ResizeHandle, pointer: Point): TextAnnotation {
+  const left = handle.includes("w");
+  const top = handle.includes("n");
+  const anchorX = left ? bounds.x + bounds.width : bounds.x;
+  const anchorY = top ? bounds.y + bounds.height : bounds.y;
+  const ratio = Math.max(
+    MIN_TEXT_FONT_SIZE / a.fontSize,
+    bounds.width > 0 ? Math.abs(pointer.x - anchorX) / bounds.width : 0,
+    bounds.height > 0 ? Math.abs(pointer.y - anchorY) / bounds.height : 0,
+  );
+  const width = bounds.width * ratio;
+  const height = bounds.height * ratio;
+  return {
+    ...a,
+    fontSize: a.fontSize * ratio,
+    at: { x: left ? anchorX - width : anchorX, y: top ? anchorY - height : anchorY },
+  };
 }
 
 /** True when `p` (screenshot pixels) touches the annotation within `tolerance` screenshot pixels. */
