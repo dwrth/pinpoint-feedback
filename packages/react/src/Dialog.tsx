@@ -15,7 +15,15 @@ import {
   type SubmissionSuccess,
   type SubmitProgress,
 } from "@pinpoint-feedback/core";
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { isDraftDirty, validateDraft, type Draft, type DraftField, type FieldErrors } from "./draft";
 import { FeedbackForm } from "./Form";
 import { useFocusTrap } from "./hooks";
@@ -41,10 +49,13 @@ export interface DialogProps {
   /** Close and discard the draft. */
   onClose: () => void;
   onRetake: (displayMedia: boolean) => void;
+  onRemoveScreenshot: () => void;
   displayMediaSupported: boolean;
   categories: readonly CategoryDefinition[];
   showReporterFields: boolean;
   reporter?: Reporter;
+  privacyNotice: boolean | ReactNode;
+  privacyPolicyUrl?: string;
   projectId?: string;
   getClient: () => FeedbackClient;
   onSubmitted?: (result: SubmissionSuccess) => void;
@@ -135,6 +146,38 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
 }
 
+function PrivacyNotice({
+  notice,
+  policyUrl,
+  withContact,
+}: {
+  notice: boolean | ReactNode;
+  policyUrl?: string;
+  withContact: boolean;
+}) {
+  const { t } = useI18n();
+  if (notice === false || notice === null || notice === undefined) return null;
+  const text = notice === true ? t(withContact ? "privacy.noticeWithContact" : "privacy.notice") : notice;
+  return (
+    <div className="text-2xs leading-relaxed text-fg-subtle" data-testid="pinpoint-privacy-notice">
+      {text}
+      {policyUrl ? (
+        <>
+          {" "}
+          <a
+            href={policyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-fg-muted underline underline-offset-2 hover:text-fg"
+          >
+            {t("privacy.policyLink")}
+          </a>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Dialog(props: DialogProps) {
   const {
     screenshot,
@@ -142,10 +185,13 @@ export default function Dialog(props: DialogProps) {
     onDraftChange,
     onClose,
     onRetake,
+    onRemoveScreenshot,
     displayMediaSupported,
     categories,
     showReporterFields,
     reporter,
+    privacyNotice,
+    privacyPolicyUrl,
     projectId,
     getClient,
     onSubmitted,
@@ -393,7 +439,14 @@ export default function Dialog(props: DialogProps) {
           >
             {screenshot ? (
               <>
-                <Toolbar editor={editor} state={state} scale={screenshot.scale} onRetake={() => onRetake(false)} disabled={submitting || succeeded} />
+                <Toolbar
+                  editor={editor}
+                  state={state}
+                  scale={screenshot.scale}
+                  onRetake={() => onRetake(false)}
+                  onRemove={onRemoveScreenshot}
+                  disabled={submitting || succeeded}
+                />
                 {showWarnings ? (
                   <div
                     role="note"
@@ -504,6 +557,11 @@ export default function Dialog(props: DialogProps) {
                       </div>
                     </div>
                   ) : null}
+                  <PrivacyNotice
+                    notice={privacyNotice}
+                    policyUrl={privacyPolicyUrl}
+                    withContact={Boolean(reporter) || reporterFields}
+                  />
                   <div className="flex items-center gap-3">
                     <p className="min-w-0 flex-1 truncate text-xs text-fg-muted" aria-hidden="true">
                       {status.kind === "submitting" ? (

@@ -74,6 +74,8 @@ export function Widget({
   projectId,
   reporter,
   collectReporter = true,
+  privacyNotice = true,
+  privacyPolicyUrl,
   buttonLabel: buttonLabelProp,
   hotkey = false,
   zIndex = 2147483000,
@@ -348,10 +350,13 @@ export function Widget({
               onDraftChange={(update) => setDraft((d) => (d ? update(d) : d))}
               onClose={reset}
               onRetake={(displayMedia) => void capture(displayMedia)}
+              onRemoveScreenshot={() => setScreenshot(null)}
               displayMediaSupported={displayMediaSupported}
               categories={categories}
               showReporterFields={collectReporter}
               reporter={reporter}
+              privacyNotice={privacyNotice}
+              privacyPolicyUrl={privacyPolicyUrl}
               projectId={projectId}
               getClient={getClient}
               onSubmitted={onSubmitted}

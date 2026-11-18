@@ -50,6 +50,7 @@ export const fr = defineLocale({
     "toolbar.resetScreenshot": "Réinitialiser la capture",
     "toolbar.retake": "Reprendre",
     "toolbar.retakeTooltip": "Reprendre la capture d’écran",
+    "toolbar.removeScreenshot": "Supprimer la capture",
 
     "tool.select": "Sélection",
     "tool.pin": "Repère",
@@ -144,6 +145,10 @@ export const fr = defineLocale({
     "confirm.description": "Vos notes et annotations seront perdues.",
     "confirm.keep": "Continuer la saisie",
     "confirm.discard": "Abandonner",
+
+    "privacy.notice": "Votre avis, l’éventuelle capture d’écran et des informations techniques sur cette page et votre navigateur sont transmis à l’exploitant du site et enregistrés dans Notion, uniquement pour traiter ce signalement.",
+    "privacy.noticeWithContact": "Votre avis, l’éventuelle capture d’écran, des informations techniques sur cette page et votre navigateur ainsi que votre nom et votre adresse e-mail sont transmis à l’exploitant du site et enregistrés dans Notion, uniquement pour traiter ce signalement.",
+    "privacy.policyLink": "Politique de confidentialité",
   },
   editor: {
     "editor.label":

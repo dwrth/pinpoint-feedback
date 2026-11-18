@@ -35,6 +35,14 @@ export interface FeedbackWidgetProps<C extends CategoryList = DefaultCategoryLis
   reporter?: Reporter;
   /** Show optional name/email fields. Default true. */
   collectReporter?: boolean;
+  /**
+   * Notice above the send button telling users what is sent and where it is stored.
+   * `true` (default) shows the locale's `privacy.notice` / `privacy.noticeWithContact` text, which can
+   * be reworded per language through `messages`. Pass your own content to replace it, or `false` to hide it.
+   */
+  privacyNotice?: boolean | ReactNode;
+  /** Privacy policy URL, linked after the privacy notice (opens in a new tab). */
+  privacyPolicyUrl?: string;
   /** Floating button text. Default: the locale's `launcher.label` ("Feedback"). */
   buttonLabel?: string;
   /** Keyboard shortcut toggling the widget, e.g. "mod+shift+f" (mod = ⌘ on Apple, Ctrl elsewhere). */

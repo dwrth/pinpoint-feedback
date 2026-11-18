@@ -16,6 +16,7 @@ import {
   PlusIcon,
   PointerIcon,
   RedoIcon,
+  ImageOffIcon,
   ResetIcon,
   SquareIcon,
   TrashIcon,
@@ -95,10 +96,11 @@ export interface ToolbarProps {
   /** Screenshot pixels per CSS pixel. */
   scale: number;
   onRetake: () => void;
+  onRemove: () => void;
   disabled?: boolean;
 }
 
-export function Toolbar({ editor, state, scale, onRetake, disabled }: ToolbarProps) {
+export function Toolbar({ editor, state, scale, onRetake, onRemove, disabled }: ToolbarProps) {
   const { t, locale } = useI18n();
   const off = disabled || !editor || !state;
   const strokeWidths = strokeWidthsFor(scale);
@@ -172,6 +174,9 @@ export function Toolbar({ editor, state, scale, onRetake, disabled }: ToolbarPro
       <Divider />
       <ToolButton label={t("toolbar.resetScreenshot")} disabled={off} onClick={() => editor?.reset()}>
         <ResetIcon />
+      </ToolButton>
+      <ToolButton label={t("toolbar.removeScreenshot")} disabled={disabled} onClick={onRemove}>
+        <ImageOffIcon />
       </ToolButton>
       <button
         type="button"

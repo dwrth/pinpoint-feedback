@@ -49,6 +49,7 @@ export const de = defineLocale({
     "toolbar.resetScreenshot": "Screenshot zurücksetzen",
     "toolbar.retake": "Neu",
     "toolbar.retakeTooltip": "Screenshot neu aufnehmen",
+    "toolbar.removeScreenshot": "Screenshot entfernen",
 
     "tool.select": "Auswählen",
     "tool.pin": "Pin",
@@ -144,6 +145,10 @@ export const de = defineLocale({
     "confirm.description": "Notizen und Markierungen gehen verloren.",
     "confirm.keep": "Weiter bearbeiten",
     "confirm.discard": "Verwerfen",
+
+    "privacy.notice": "Feedback, gegebenenfalls Screenshot sowie technische Angaben zu Seite und Browser werden an den Betreiber der Website übermittelt und ausschließlich zur Bearbeitung der Meldung in Notion gespeichert.",
+    "privacy.noticeWithContact": "Feedback, gegebenenfalls Screenshot, technische Angaben zu Seite und Browser sowie Name und E-Mail-Adresse werden an den Betreiber der Website übermittelt und ausschließlich zur Bearbeitung der Meldung in Notion gespeichert.",
+    "privacy.policyLink": "Datenschutzhinweise",
   },
   editor: {
     "editor.label":

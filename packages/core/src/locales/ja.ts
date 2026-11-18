@@ -48,6 +48,7 @@ export const ja = defineLocale({
     "toolbar.resetScreenshot": "スクリーンショットをリセット",
     "toolbar.retake": "撮り直す",
     "toolbar.retakeTooltip": "スクリーンショットを撮り直す",
+    "toolbar.removeScreenshot": "スクリーンショットを削除",
 
     "tool.select": "選択",
     "tool.pin": "ピン",
@@ -138,6 +139,10 @@ export const ja = defineLocale({
     "confirm.description": "入力したメモと注釈は失われます。",
     "confirm.keep": "編集を続ける",
     "confirm.discard": "破棄",
+
+    "privacy.notice": "フィードバック、スクリーンショット（ある場合）、このページとブラウザーに関する技術情報はサイト運営者に送信され、このレポートの対応のためにのみ Notion に保存されます。",
+    "privacy.noticeWithContact": "フィードバック、スクリーンショット（ある場合）、このページとブラウザーに関する技術情報、お名前とメールアドレスはサイト運営者に送信され、このレポートの対応のためにのみ Notion に保存されます。",
+    "privacy.policyLink": "プライバシーポリシー",
   },
   editor: {
     "editor.label":

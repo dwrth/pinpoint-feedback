@@ -48,6 +48,7 @@ export const zhCN = defineLocale({
     "toolbar.resetScreenshot": "重置截图",
     "toolbar.retake": "重新截图",
     "toolbar.retakeTooltip": "重新截取截图",
+    "toolbar.removeScreenshot": "移除截图",
 
     "tool.select": "选择",
     "tool.pin": "图钉",
@@ -138,6 +139,10 @@ export const zhCN = defineLocale({
     "confirm.description": "你的备注和标注将会丢失。",
     "confirm.keep": "继续编辑",
     "confirm.discard": "放弃",
+
+    "privacy.notice": "你的反馈、截图（如有）以及本页面和浏览器的技术信息将发送给网站运营方，并仅为处理此反馈而保存在 Notion 中。",
+    "privacy.noticeWithContact": "你的反馈、截图（如有）、本页面和浏览器的技术信息以及你的姓名和电子邮箱将发送给网站运营方，并仅为处理此反馈而保存在 Notion 中。",
+    "privacy.policyLink": "隐私政策",
   },
   editor: {
     "editor.label": "截图标注编辑器。使用工具栏选择工具，然后在截图上点击或拖动。",

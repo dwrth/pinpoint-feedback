@@ -51,6 +51,7 @@ export const pl = defineLocale({
     "toolbar.resetScreenshot": "Przywróć zrzut ekranu",
     "toolbar.retake": "Nowy zrzut",
     "toolbar.retakeTooltip": "Zrób zrzut ekranu ponownie",
+    "toolbar.removeScreenshot": "Usuń zrzut ekranu",
 
     "tool.select": "Zaznacz",
     "tool.pin": "Pinezka",
@@ -144,6 +145,10 @@ export const pl = defineLocale({
     "confirm.description": "Notatki i adnotacje zostaną utracone.",
     "confirm.keep": "Edytuj dalej",
     "confirm.discard": "Odrzuć",
+
+    "privacy.notice": "Opinia, ewentualny zrzut ekranu oraz dane techniczne o tej stronie i przeglądarce zostaną przesłane do operatora witryny i zapisane w Notion wyłącznie w celu obsługi tego zgłoszenia.",
+    "privacy.noticeWithContact": "Opinia, ewentualny zrzut ekranu, dane techniczne o tej stronie i przeglądarce oraz imię i adres e-mail zostaną przesłane do operatora witryny i zapisane w Notion wyłącznie w celu obsługi tego zgłoszenia.",
+    "privacy.policyLink": "Polityka prywatności",
   },
   editor: {
     "editor.label":

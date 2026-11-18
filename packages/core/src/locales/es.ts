@@ -50,6 +50,7 @@ export const es = defineLocale({
     "toolbar.resetScreenshot": "Restablecer captura",
     "toolbar.retake": "Repetir",
     "toolbar.retakeTooltip": "Repetir la captura",
+    "toolbar.removeScreenshot": "Quitar la captura",
 
     "tool.select": "Seleccionar",
     "tool.pin": "Marcador",
@@ -144,6 +145,10 @@ export const es = defineLocale({
     "confirm.description": "Se perderán tus notas y anotaciones.",
     "confirm.keep": "Seguir editando",
     "confirm.discard": "Descartar",
+
+    "privacy.notice": "Tus comentarios, la captura de pantalla (si la hay) y datos técnicos sobre esta página y tu navegador se envían al responsable del sitio y se guardan en Notion solo para gestionar este informe.",
+    "privacy.noticeWithContact": "Tus comentarios, la captura de pantalla (si la hay), datos técnicos sobre esta página y tu navegador, y tu nombre y correo electrónico se envían al responsable del sitio y se guardan en Notion solo para gestionar este informe.",
+    "privacy.policyLink": "Política de privacidad",
   },
   editor: {
     "editor.label":
