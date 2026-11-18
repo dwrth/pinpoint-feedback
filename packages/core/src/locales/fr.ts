@@ -56,6 +56,7 @@ export const fr = defineLocale({
     "tool.pin": "Repère",
     "tool.arrow": "Flèche",
     "tool.rectangle": "Rectangle",
+    "tool.redaction": "Caviarder",
     "tool.freehand": "Dessin",
     "tool.text": "Texte",
 
@@ -169,6 +170,9 @@ export const fr = defineLocale({
     "arrow.added": "Flèche ajoutée",
     "arrow.moved": "Flèche déplacée",
     "arrow.deleted": "Flèche supprimée",
+    "redaction.added": "Caviardage ajouté",
+    "redaction.moved": "Caviardage déplacé",
+    "redaction.deleted": "Caviardage supprimé",
     "rectangle.added": "Rectangle ajouté",
     "rectangle.moved": "Rectangle déplacé",
     "rectangle.deleted": "Rectangle supprimé",
@@ -263,14 +267,12 @@ export const fr = defineLocale({
 
     headingDescription: "Description",
     headingAnnotatedScreenshot: "Capture d’écran annotée",
-    headingOriginalScreenshot: "Capture d’écran originale",
     headingAnnotations: "Annotations",
     headingCaptureNotes: "Notes de capture",
     headingEnvironment: "Environnement",
 
     noDescription: "Aucune description fournie.",
     captionAnnotatedScreenshot: "Capture d’écran avec annotations",
-    captionOriginalScreenshot: "Capture originale sans annotations",
 
     fieldLabel: "{label} : ",
     pinNumber: "#{number}",
@@ -279,6 +281,7 @@ export const fr = defineLocale({
     quotedText: "« {text} »",
     shapesLabel: "Formes",
     arrowCount: { one: "# flèche", many: "# flèches", other: "# flèches" },
+    redactionCount: { one: "# zone caviardée", many: "# zones caviardées", other: "# zones caviardées" },
     rectangleCount: { one: "# rectangle", many: "# rectangles", other: "# rectangles" },
     freehandCount: { one: "# tracé à main levée", many: "# tracés à main levée", other: "# tracés à main levée" },
 

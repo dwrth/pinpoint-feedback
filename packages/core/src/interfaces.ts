@@ -171,7 +171,6 @@ export interface FileUploader {
 
 export interface FeedbackRecordInput {
   submission: FeedbackSubmission;
-  screenshot?: UploadableFile;
   annotatedScreenshot?: UploadableFile;
 }
 

@@ -69,11 +69,11 @@ describe("createFeedbackClient.submit", () => {
     });
     const { client, outbox } = setup(transport);
     const progress: SubmitProgress[] = [];
-    const result = await client.submit(sub, { screenshot: new Blob(["a"]) }, { onProgress: (p) => progress.push(p) });
+    const result = await client.submit(sub, { annotatedScreenshot: new Blob(["a"]) }, { onProgress: (p) => progress.push(p) });
 
     expect(result.ok).toBe(true);
     expect(seenInOutbox?.submission.submissionId).toBe(sub.submissionId);
-    expect(seenInOutbox?.files.screenshot).toBeInstanceOf(Blob);
+    expect(seenInOutbox?.files.annotatedScreenshot).toBeInstanceOf(Blob);
     expect(await client.pending()).toEqual([]);
     expect(progress.map((p) => p.phase)).toEqual(["preparing", "queued", "sending", "done"]);
     expect(progress.every((p) => p.maxAttempts === 3)).toBe(true);
@@ -184,7 +184,7 @@ describe("createFeedbackClient.submit", () => {
         throw new Error("too big");
       },
     });
-    const result = await client.submit(makeSubmission(), { screenshot: new Blob(["x"]) });
+    const result = await client.submit(makeSubmission(), { annotatedScreenshot: new Blob(["x"]) });
     expect(!result.ok && result.error).toMatchObject({ code: "payload_too_large", retryable: false });
     expect(transport.submit).not.toHaveBeenCalled();
   });
@@ -193,13 +193,12 @@ describe("createFeedbackClient.submit", () => {
     const small = new Blob(["small"], { type: "image/webp" });
     const fitImage = vi.fn(async () => ({ blob: small }));
     const transport = scriptedTransport((s, files) => {
-      expect(files.screenshot).toBe(small);
       expect(files.annotatedScreenshot).toBe(small);
       return ok(s.submissionId);
     });
     const { client } = setup(transport, { fitImage, maxFileBytes: 1234 });
     const big = new Blob(["big"], { type: "image/png" });
-    expect((await client.submit(makeSubmission(), { screenshot: big, annotatedScreenshot: big })).ok).toBe(true);
+    expect((await client.submit(makeSubmission(), { annotatedScreenshot: big })).ok).toBe(true);
     expect(fitImage).toHaveBeenCalledWith(big, 1234);
   });
 
@@ -385,7 +384,7 @@ describe("client precheck with custom categories", () => {
 describe("server file size limit", () => {
   const tooLarge = (maxFileBytes: unknown): SubmissionResult => ({
     ok: false,
-    error: { code: "payload_too_large", message: "too large", retryable: false, details: { maxFileBytes, field: "screenshot" } },
+    error: { code: "payload_too_large", message: "too large", retryable: false, details: { maxFileBytes, field: "annotatedScreenshot" } },
   });
   const big = () => new Blob([new Uint8Array(100)], { type: "image/png" });
   let truncatingFit: ReturnType<typeof makeFit>;
@@ -400,35 +399,32 @@ describe("server file size limit", () => {
     const sizes: number[][] = [];
     const transport = scriptedTransport(
       (_s, files) => {
-        sizes.push([files.screenshot!.size, files.annotatedScreenshot!.size]);
+        sizes.push([files.annotatedScreenshot!.size]);
         return tooLarge(40);
       },
       (s, files) => {
-        sizes.push([files.screenshot!.size, files.annotatedScreenshot!.size]);
+        sizes.push([files.annotatedScreenshot!.size]);
         return ok(s.submissionId);
       },
     );
     const { client, outbox } = setup(transport, { fitImage: truncatingFit });
     const putSpy = vi.spyOn(outbox, "put");
-    const result = await client.submit(sub, { screenshot: big(), annotatedScreenshot: big() });
+    const result = await client.submit(sub, { annotatedScreenshot: big() });
 
     expect(result.ok).toBe(true);
-    expect(sizes).toEqual([
-      [100, 100],
-      [40, 40],
-    ]);
+    expect(sizes).toEqual([[100], [40]]);
     expect(transport.submit.mock.calls.every(([s]) => s.submissionId === sub.submissionId)).toBe(true);
-    expect(putSpy.mock.calls.some(([e]) => e.files.screenshot?.size === 40)).toBe(true);
+    expect(putSpy.mock.calls.some(([e]) => e.files.annotatedScreenshot?.size === 40)).toBe(true);
     expect(await client.pending()).toEqual([]);
 
-    await client.submit(makeSubmission(), { screenshot: big() });
+    await client.submit(makeSubmission(), { annotatedScreenshot: big() });
     expect(truncatingFit).toHaveBeenLastCalledWith(expect.any(Blob), 40);
   });
 
   it("retries only once and then drops the entry", async () => {
     const transport = scriptedTransport(tooLarge(40), tooLarge(10));
     const { client } = setup(transport, { fitImage: truncatingFit });
-    const result = await client.submit(makeSubmission(), { screenshot: big() });
+    const result = await client.submit(makeSubmission(), { annotatedScreenshot: big() });
     expect(!result.ok && result.error.code).toBe("payload_too_large");
     expect(transport.submit).toHaveBeenCalledTimes(2);
     expect(await client.pending()).toEqual([]);
@@ -437,17 +433,27 @@ describe("server file size limit", () => {
   it.each([[undefined], ["40"], [500]])("does not retry when details.maxFileBytes is %s", async (limit) => {
     const transport = scriptedTransport(tooLarge(limit));
     const { client } = setup(transport, { fitImage: truncatingFit });
-    await client.submit(makeSubmission(), { screenshot: big() });
+    await client.submit(makeSubmission(), { annotatedScreenshot: big() });
     expect(transport.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops an un-annotated screenshot left in an entry queued by an older version", async () => {
+    const sub = makeSubmission();
+    const transport = scriptedTransport(ok(sub.submissionId));
+    const { client, outbox } = setup(transport);
+    await outbox.put({ submission: sub, files: { annotatedScreenshot: big(), screenshot: big() } as SubmissionFiles, attempts: 1 });
+    await client.retryPending({ force: true });
+    expect(transport.submit.mock.calls[0]![1]).not.toHaveProperty("screenshot");
+    expect(transport.submit.mock.calls[0]![1].annotatedScreenshot).toBeInstanceOf(Blob);
   });
 
   it("re-fits entries sent by retryPending", async () => {
     const sub = makeSubmission();
     const transport = scriptedTransport(tooLarge(30), ok(sub.submissionId));
     const { client, outbox } = setup(transport, { fitImage: truncatingFit });
-    await outbox.put({ submission: sub, files: { screenshot: big() }, attempts: 1 });
+    await outbox.put({ submission: sub, files: { annotatedScreenshot: big() }, attempts: 1 });
     const [result] = await client.retryPending({ force: true });
     expect(result?.ok).toBe(true);
-    expect(transport.submit.mock.calls[1]![1].screenshot!.size).toBe(30);
+    expect(transport.submit.mock.calls[1]![1].annotatedScreenshot!.size).toBe(30);
   });
 });

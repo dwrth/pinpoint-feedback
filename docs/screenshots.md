@@ -82,7 +82,7 @@ If capture fails, the reporter can also **continue without a screenshot**; the r
 
 Each screenshot is uploaded to Notion, whose single-part upload limit is 5 MB on free workspaces and 20 MB on paid ones.
 
-On submit, the client checks the original and the annotated screenshot against its `maxFileBytes` (default 5 MB) with `fitImageToSize`:
+On submit, the client checks the annotated screenshot against its `maxFileBytes` (default 5 MB) with `fitImageToSize`:
 
 1. Images within the limit are sent unchanged (PNG).
 2. Larger images are re-encoded as WebP, then JPEG, at decreasing quality (0.92 → 0.45) at full size.

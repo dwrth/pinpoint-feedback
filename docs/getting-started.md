@@ -98,7 +98,7 @@ Options, CORS and status codes are covered in [Server](server.md). A complete ap
 Open the site, click **Feedback**, annotate the screenshot and submit. On the first submission the handler:
 
 1. resolves the database and adds any missing properties (`Description`, `Status`, `Category`, …),
-2. uploads the original and annotated screenshots,
+2. uploads the annotated screenshot (the un-annotated capture is never sent),
 3. creates the page.
 
 The widget shows success only after Notion has confirmed the page. See [Notion](notion.md) for the columns and page layout.

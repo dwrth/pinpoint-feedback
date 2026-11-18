@@ -12,12 +12,12 @@ The editor never modifies the input image. Two images come out of an editing ses
 
 | Image | Where from |
 | --- | --- |
-| Original | The `image` you passed in (the widget sends `CapturedScreenshot.blob`) |
+| Original | The `image` you passed in (the widget sends `CapturedScreenshot.blob`). The widget never sends it. |
 | Annotated | `editor.exportAnnotated()`: original + annotations burned in, at full screenshot resolution |
 
 ## Tools
 
-`AnnotationTool` is `"select" | "pin" | "freehand" | "arrow" | "rectangle" | "text"` (`ANNOTATION_TOOLS`). The default tool is `pin`.
+`AnnotationTool` is `"select" | "pin" | "freehand" | "arrow" | "rectangle" | "redaction" | "text"` (`ANNOTATION_TOOLS`). The default tool is `pin`.
 
 | Tool | Interaction |
 | --- | --- |
@@ -25,6 +25,7 @@ The editor never modifies the input image. Two images come out of an editing ses
 | `pin` | Click inside the screenshot to drop a numbered pin, then optionally type a [note](#pin-notes). Clicking an existing pin edits its note instead of stacking a new pin. Numbers are 1-based in creation order and renumbered whenever pins are removed, so they stay sequential. |
 | `arrow` | Drag from tail to head. **Shift** snaps the angle to 45° steps. Arrows shorter than 4 screen px are discarded. |
 | `rectangle` | Drag a box. **Shift** constrains it to a square. Boxes narrower or shorter than 4 screen px are discarded. |
+| `redaction` | Drag a box that is filled solid black, to hide personal data. Same geometry rules as `rectangle`. The fill is always black, whatever the category color, and it is snapped outward to whole pixels so no edge pixel of the original shows through. |
 | `freehand` | Drag to draw. Coalesced pointer events are sampled; the path is simplified when the stroke ends. |
 | `text` | Click to open a text box; click an existing text annotation to edit it. **Enter** commits, **Shift+Enter** adds a line, **Escape** cancels, blur commits. Clearing an existing text deletes it. |
 
@@ -92,6 +93,7 @@ The widget adds tool keys on top. They work while focus is inside the editor are
 | `P` | Pin |
 | `A` | Arrow |
 | `R` | Rectangle |
+| `B` | Redaction |
 | `D` | Freehand |
 | `T` | Text |
 
@@ -230,6 +232,14 @@ interface RectangleAnnotation extends AnnotationBase {
   height: number;
 }
 
+interface RedactionAnnotation extends AnnotationBase {
+  type: "redaction";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface TextAnnotation extends AnnotationBase {
   type: "text";
   at: Point; // top-left of the first line
@@ -237,7 +247,7 @@ interface TextAnnotation extends AnnotationBase {
   fontSize: number; // screenshot px
 }
 
-type Annotation = PinAnnotation | FreehandAnnotation | ArrowAnnotation | RectangleAnnotation | TextAnnotation;
+type Annotation = PinAnnotation | FreehandAnnotation | ArrowAnnotation | RectangleAnnotation | RedactionAnnotation | TextAnnotation;
 ```
 
 `PinAnnotation.note` is entered in the editor's [note box](#pin-notes) and listed next to the pin on the Notion page. It can also be set through `initialAnnotations` or `setAnnotations()`.

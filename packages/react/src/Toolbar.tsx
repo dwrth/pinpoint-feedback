@@ -17,6 +17,7 @@ import {
   PointerIcon,
   RedoIcon,
   ImageOffIcon,
+  RedactIcon,
   ResetIcon,
   SquareIcon,
   TrashIcon,
@@ -31,6 +32,7 @@ export const TOOLS: { tool: AnnotationTool; key: string; Icon: ComponentType<Ico
   { tool: "pin", key: "P", Icon: PinIcon },
   { tool: "arrow", key: "A", Icon: ArrowIcon },
   { tool: "rectangle", key: "R", Icon: SquareIcon },
+  { tool: "redaction", key: "B", Icon: RedactIcon },
   { tool: "freehand", key: "D", Icon: PencilIcon },
   { tool: "text", key: "T", Icon: TypeIcon },
 ];

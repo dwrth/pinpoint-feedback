@@ -13,7 +13,6 @@ Every report becomes one page in a Notion database. The server talks to Notion t
 | `Priority` | Select | Multi-select, Status, Text | `Low`, `Medium`, `High`, `Critical` | `priority` |
 | `Website URL` | URL | Text | URL of the page the report was made on | `websiteUrl` |
 | `Page Title` | Text | – | `document.title` of that page | `pageTitle` |
-| `Screenshot` | Files & media | – | Original screenshot | `screenshot` |
 | `Annotated Screenshot` | Files & media | – | Screenshot with annotations | `annotatedScreenshot` |
 | `Reporter Name` | Text | – | Name, if given | `reporterName` |
 | `Reporter Email` | Email | Text | Email, if given | `reporterEmail` |
@@ -71,10 +70,9 @@ The body is written by the server, in the handler's `locale` (see [International
 
 1. **Callout** with the category's emoji, the category, priority and, if given, the reporter (`Bug · High · reported by Ada`).
 2. **Description** heading and the full description, one paragraph per blank-line-separated block. Never truncated.
-3. **Annotated screenshot** heading and image block.
-4. **Original screenshot** heading and image block.
-5. **Annotations** heading (if any): numbered pins with their notes, text annotations, and a count of arrows, rectangles and freehand drawings.
-6. **Capture notes** heading (if any): one line per [capture warning](screenshots.md), with counts. A `blank-canvas` note says that canvases (e.g. WebGL) came out empty and suggests screen capture.
+3. **Annotated screenshot** heading and image block. Redactions are already burned in.
+4. **Annotations** heading (if any): numbered pins with their notes, text annotations, and a count of arrows, rectangles, freehand drawings and redacted areas.
+5. **Capture notes** heading (if any): one line per [capture warning](screenshots.md), with counts. A `blank-canvas` note says that canvases (e.g. WebGL) came out empty and suggests screen capture.
 7. **Environment** heading: URL, page title, browser, OS, viewport, screen, pixel ratio, language, timezone, referrer, capture method and size, submission time (UTC), user agent. Empty values are omitted.
 8. The submission ID in small gray text.
 
@@ -100,7 +98,7 @@ Size limits:
 
 Raise `maxFileBytes` only on a paid workspace. The widget's client also fits screenshots into 5 MB by default (re-encoding or downscaling them); a lower server limit is advertised in the `413` response's `details.maxFileBytes`.
 
-Files are named `pinpoint-<first 8 chars of the submission ID>-original.<ext>` and `…-annotated.<ext>`, with the extension taken from the sniffed image type.
+The only screenshot stored is `pinpoint-<first 8 chars of the submission ID>-annotated.<ext>`, with the extension taken from the sniffed image type. The un-annotated capture is never uploaded.
 
 To store images elsewhere (S3, R2, …), pass a `FileUploader` as `notion.uploader`. See [Architecture](architecture.md).
 

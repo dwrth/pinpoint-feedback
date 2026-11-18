@@ -11,6 +11,7 @@ import {
   TEXT_FONT_FAMILY,
   TEXT_FONT_WEIGHT,
   TEXT_LINE_HEIGHT,
+  REDACTION_COLOR,
   ZOOM_STEP,
   pinRadiusFor,
   textSizeFor,
@@ -81,6 +82,8 @@ function describeAction(t: Translate<typeof enEditor>, a: Annotation, action: An
       return t(`arrow.${action}`);
     case "rectangle":
       return t(`rectangle.${action}`);
+    case "redaction":
+      return t(`redaction.${action}`);
     case "text":
       return t(`text.${action}`);
   }
@@ -817,6 +820,16 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         };
         break;
       }
+      case "redaction": {
+        const start = clampToImage(ip);
+        gesture = {
+          kind: "draw",
+          pointerId: e.pointerId,
+          start,
+          draft: { ...base, color: REDACTION_COLOR, type: "redaction", x: start.x, y: start.y, width: 0, height: 0 },
+        };
+        break;
+      }
     }
     updateCursor();
     scheduleRender();
@@ -840,7 +853,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
     if (draft.type === "arrow") {
       if (e.shiftKey) ip = clampToImage(snapAngle(g.start, ip));
       g.draft = { ...draft, to: ip };
-    } else if (draft.type === "rectangle") {
+    } else if (draft.type === "rectangle" || draft.type === "redaction") {
       if (e.shiftKey) {
         const size = Math.max(Math.abs(ip.x - g.start.x), Math.abs(ip.y - g.start.y));
         ip = clampToImage({
@@ -920,6 +933,10 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       case "rectangle":
         if (draft.width * view.zoom < minScreen || draft.height * view.zoom < minScreen) return;
         commit([...annotations, draft], t("rectangle.added"));
+        return;
+      case "redaction":
+        if (draft.width * view.zoom < minScreen || draft.height * view.zoom < minScreen) return;
+        commit([...annotations, draft], t("redaction.added"));
         return;
       default:
         return;
@@ -1202,7 +1219,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
         styleTextEditor(textEditor);
       } else if (selectedId !== undefined) {
         const target = annotations.find((a) => a.id === selectedId);
-        if (target && target.color !== next) {
+        if (target && target.color !== next && target.type !== "redaction") {
           commit(annotations.map((a) => (a === target ? { ...a, color: next } : a)));
         }
       }
@@ -1214,7 +1231,7 @@ export function createAnnotationEditor(options: AnnotationEditorOptions): Annota
       strokeWidth = next;
       if (selectedId !== undefined && !textEditor) {
         const target = annotations.find((a) => a.id === selectedId);
-        if (target && target.type !== "pin" && target.type !== "text" && target.strokeWidth !== next) {
+        if (target && target.type !== "pin" && target.type !== "text" && target.type !== "redaction" && target.strokeWidth !== next) {
           commit(annotations.map((a) => (a === target ? { ...a, strokeWidth: next } : a)));
         }
       }

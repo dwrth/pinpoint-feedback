@@ -57,6 +57,7 @@ export const pl = defineLocale({
     "tool.pin": "Pinezka",
     "tool.arrow": "Strzałka",
     "tool.rectangle": "Prostokąt",
+    "tool.redaction": "Zasłoń",
     "tool.freehand": "Rysuj",
     "tool.text": "Tekst",
 
@@ -168,6 +169,9 @@ export const pl = defineLocale({
     "arrow.added": "Dodano strzałkę",
     "arrow.moved": "Przeniesiono strzałkę",
     "arrow.deleted": "Usunięto strzałkę",
+    "redaction.added": "Dodano zasłonięcie",
+    "redaction.moved": "Przeniesiono zasłonięcie",
+    "redaction.deleted": "Usunięto zasłonięcie",
     "rectangle.added": "Dodano prostokąt",
     "rectangle.moved": "Przeniesiono prostokąt",
     "rectangle.deleted": "Usunięto prostokąt",
@@ -271,14 +275,12 @@ export const pl = defineLocale({
 
     headingDescription: "Opis",
     headingAnnotatedScreenshot: "Zrzut ekranu z adnotacjami",
-    headingOriginalScreenshot: "Oryginalny zrzut ekranu",
     headingAnnotations: "Adnotacje",
     headingCaptureNotes: "Uwagi dotyczące przechwytywania",
     headingEnvironment: "Środowisko",
 
     noDescription: "Nie podano opisu.",
     captionAnnotatedScreenshot: "Zrzut ekranu z adnotacjami",
-    captionOriginalScreenshot: "Oryginalny zrzut bez adnotacji",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -287,6 +289,7 @@ export const pl = defineLocale({
     quotedText: "„{text}”",
     shapesLabel: "Kształty",
     arrowCount: { one: "# strzałka", few: "# strzałki", many: "# strzałek", other: "# strzałki" },
+    redactionCount: { one: "# zasłonięty obszar", few: "# zasłonięte obszary", many: "# zasłoniętych obszarów", other: "# zasłoniętych obszarów" },
     rectangleCount: { one: "# prostokąt", few: "# prostokąty", many: "# prostokątów", other: "# prostokąta" },
     freehandCount: {
       one: "# rysunek odręczny",

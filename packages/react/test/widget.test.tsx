@@ -158,6 +158,20 @@ describe("FeedbackWidget", () => {
     expect(shadow().getByRole("button", { name: "Rectangle" })).toBeTruthy();
   });
 
+  it("offers a redaction tool that is selected with B", async () => {
+    const { client } = makeClient();
+    const { capturer } = makeCapturer();
+    render(<FeedbackWidget client={client} capturer={capturer} />);
+    await openDialog();
+    const editor = editors[0]!.editor;
+    const redaction = shadow().getByRole("button", { name: "Redaction" }) as HTMLButtonElement;
+    await waitFor(() => expect(redaction.disabled).toBe(false));
+    fireEvent.click(redaction);
+    expect(editor.setTool).toHaveBeenCalledWith("redaction");
+    fireEvent.keyDown(shadow().getByTestId("pinpoint-editor"), { key: "b" });
+    expect(editor.setTool).toHaveBeenLastCalledWith("redaction");
+  });
+
   it("drives the editor from the toolbar and keyboard shortcuts", async () => {
     const { client } = makeClient();
     const { capturer } = makeCapturer();
@@ -273,7 +287,7 @@ describe("FeedbackWidget", () => {
     expect(submission.submissionId).toMatch(/^[0-9a-f-]{36}$/);
     expect(typeof submission.openedAt).toBe("number");
     expect(new Date(submission.createdAt).toISOString()).toBe(submission.createdAt);
-    expect(files.screenshot).toBe(screenshot.blob);
+    expect(files).not.toHaveProperty("screenshot");
     expect(await files.annotatedScreenshot!.text()).toBe("annotated");
     expect(editors[0]!.editor.exportAnnotated).toHaveBeenCalledWith("image/png");
 

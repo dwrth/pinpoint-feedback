@@ -56,6 +56,7 @@ export const ptBR = defineLocale({
     "tool.pin": "Marcador",
     "tool.arrow": "Seta",
     "tool.rectangle": "Retângulo",
+    "tool.redaction": "Tarjar",
     "tool.freehand": "Desenhar",
     "tool.text": "Texto",
 
@@ -169,6 +170,9 @@ export const ptBR = defineLocale({
     "arrow.added": "Seta adicionada",
     "arrow.moved": "Seta movida",
     "arrow.deleted": "Seta excluída",
+    "redaction.added": "Tarja adicionada",
+    "redaction.moved": "Tarja movida",
+    "redaction.deleted": "Tarja excluída",
     "rectangle.added": "Retângulo adicionado",
     "rectangle.moved": "Retângulo movido",
     "rectangle.deleted": "Retângulo excluído",
@@ -262,14 +266,12 @@ export const ptBR = defineLocale({
 
     headingDescription: "Descrição",
     headingAnnotatedScreenshot: "Captura anotada",
-    headingOriginalScreenshot: "Captura original",
     headingAnnotations: "Anotações",
     headingCaptureNotes: "Observações da captura",
     headingEnvironment: "Ambiente",
 
     noDescription: "Nenhuma descrição informada.",
     captionAnnotatedScreenshot: "Captura de tela com anotações",
-    captionOriginalScreenshot: "Captura original sem anotações",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -278,6 +280,7 @@ export const ptBR = defineLocale({
     quotedText: "“{text}”",
     shapesLabel: "Formas",
     arrowCount: { one: "# seta", many: "# setas", other: "# setas" },
+    redactionCount: { one: "# área tarjada", many: "# áreas tarjadas", other: "# áreas tarjadas" },
     rectangleCount: { one: "# retângulo", many: "# retângulos", other: "# retângulos" },
     freehandCount: { one: "# desenho à mão livre", many: "# desenhos à mão livre", other: "# desenhos à mão livre" },
 

@@ -133,6 +133,8 @@ Custom content passed from a Server Component must be serializable (elements and
 
 People can also drop the screenshot before sending with the **Remove screenshot** toolbar button; the report is then sent with page details only. Use [`data-pinpoint-ignore`](#excluding-elements-from-screenshots) to keep areas that show other people's data (member lists, chats, account details) out of every screenshot.
 
+Reporters can also black out personal data with the **Redaction** tool (`B`). Only the annotated screenshot is sent, with redactions burned in. The un-annotated capture is never sent or stored, so anything a reporter does not redact is in the report.
+
 The notice informs, it does not ask for consent: nothing is sent until the reporter presses send. Whether that is enough for your site, and what your privacy policy must say about Notion as a processor, is for you to decide.
 
 ## Hotkey
@@ -165,7 +167,7 @@ In the dialog:
 | --- | --- |
 | `Esc` | Close the dialog (with an unsaved-changes prompt if needed), or dismiss the prompt. While editing a text annotation, `Esc` cancels the text instead. |
 | `Tab` / `Shift+Tab` | Focus is trapped inside the dialog. |
-| `V` `P` `A` `R` `D` `T` | Select, pin, arrow, rectangle, freehand, text tool. Only when focus is in the screenshot area, not in a form field. |
+| `V` `P` `A` `R` `B` `D` `T` | Select, pin, arrow, rectangle, redaction, freehand, text tool. Only when focus is in the screenshot area, not in a form field. |
 | `Mod+Z` / `Mod+Shift+Z` / `Mod+Y` | Undo / redo. |
 | `+` / `-` / `0` | Zoom in / out / fit. |
 | `Delete` / `Backspace` | Delete the selected annotation. |

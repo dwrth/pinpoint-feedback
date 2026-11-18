@@ -43,6 +43,12 @@ export const PinIcon = icon(
 );
 export const ArrowIcon = icon(<path d="M7 17 17 7M8 7h9v9" />);
 export const SquareIcon = icon(<rect x="4" y="4" width="16" height="16" rx="2" />);
+export const RedactIcon = icon(
+  <>
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <rect x="8" y="8" width="8" height="8" fill="currentColor" stroke="none" />
+  </>,
+);
 export const PencilIcon = icon(
   <>
     <path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />

@@ -1,6 +1,7 @@
 export const DEFAULT_ANNOTATION_COLOR = "#ef4444";
 export const DEFAULT_STROKE_WIDTH = 6;
 
+export const REDACTION_COLOR = "#000000";
 export const SELECTION_COLOR = "#2563eb";
 export const TEXT_LINE_HEIGHT = 1.25;
 export const TEXT_FONT_FAMILY =

@@ -35,8 +35,6 @@ describe("createFeedbackRequestHandler", () => {
     const input = inputs[0]!;
     expect(input.submission.title).toBe(submission.title);
     expect(input.submission.projectId).toBe("server-project");
-    expect(input.screenshot?.contentType).toBe("image/png");
-    expect(input.screenshot?.filename).toBe(`pinpoint-${submission.submissionId.slice(0, 8)}-original.png`);
     expect(input.annotatedScreenshot?.filename).toMatch(/-annotated\.png$/);
     expect(onSubmission).toHaveBeenCalledOnce();
   });
@@ -45,7 +43,21 @@ describe("createFeedbackRequestHandler", () => {
     const { h, inputs } = handler();
     const res = await h(makeRequest(makeSubmission(), {}));
     expect(res.status).toBe(201);
-    expect(inputs[0]!.screenshot).toBeUndefined();
+    expect(inputs[0]!.annotatedScreenshot).toBeUndefined();
+  });
+
+  it("ignores the un-annotated screenshot sent by older widgets", async () => {
+    const { h, inputs } = handler();
+    const res = await h(makeRequest(makeSubmission(), { screenshot: pngBlob(), annotatedScreenshot: pngBlob() }));
+    expect(res.status).toBe(201);
+    expect(inputs[0]).not.toHaveProperty("screenshot");
+    expect(inputs[0]!.annotatedScreenshot?.filename).toMatch(/-annotated\.png$/);
+  });
+
+  it("does not reject a malformed un-annotated screenshot part", async () => {
+    const { h } = handler();
+    const res = await h(makeRequest(makeSubmission(), { screenshot: new Blob(["not an image"], { type: "image/svg+xml" }), annotatedScreenshot: pngBlob() }));
+    expect(res.status).toBe(201);
   });
 
   it("rejects non-POST methods with 405", async () => {
@@ -106,7 +118,7 @@ describe("createFeedbackRequestHandler", () => {
     expect((await h(big)).status).toBe(413);
 
     const huge = new Blob([new Uint8Array(600 * 1024)], { type: "image/png" });
-    const res = await h(makeRequest(makeSubmission(), { screenshot: huge }));
+    const res = await h(makeRequest(makeSubmission(), { annotatedScreenshot: huge }));
     expect(res.status).toBe(413);
     expect((await res.json()).error.code).toBe("payload_too_large");
   });
@@ -114,11 +126,7 @@ describe("createFeedbackRequestHandler", () => {
   it("rejects files above maxFileBytes and advertises the limit and field", async () => {
     const { h } = handler({ maxFileBytes: 32 });
     const big = new Blob([new Uint8Array([...Array.from(pngHeader()), ...new Uint8Array(64)])], { type: "image/png" });
-    const res = await h(makeRequest(makeSubmission(), { screenshot: big }));
-    expect(res.status).toBe(413);
-    expect((await res.json()).error).toMatchObject({ code: "payload_too_large", details: { maxFileBytes: 32, field: "screenshot" } });
-
-    const annotated = await h(makeRequest(makeSubmission(), { screenshot: pngBlob(), annotatedScreenshot: big }));
+    const annotated = await h(makeRequest(makeSubmission(), { annotatedScreenshot: big }));
     expect(annotated.status).toBe(413);
     expect((await annotated.json()).error.details).toEqual({ maxFileBytes: 32, field: "annotatedScreenshot" });
   });
@@ -132,7 +140,7 @@ describe("createFeedbackRequestHandler", () => {
     expect((await res.json()).error.details).toEqual({ maxFileBytes: 1024 });
 
     const huge = new Blob([new Uint8Array(600 * 1024)], { type: "image/png" });
-    const streamed = await h(makeRequest(makeSubmission(), { screenshot: huge }));
+    const streamed = await h(makeRequest(makeSubmission(), { annotatedScreenshot: huge }));
     expect((await streamed.json()).error.details).toEqual({ maxFileBytes: 1024 });
   });
 
@@ -179,17 +187,17 @@ describe("createFeedbackRequestHandler", () => {
   it("verifies magic bytes instead of trusting the declared type", async () => {
     const { h, inputs } = handler();
     const fake = new Blob(["<svg onload=alert(1)>"], { type: "image/png" });
-    const res = await h(makeRequest(makeSubmission(), { screenshot: fake }));
+    const res = await h(makeRequest(makeSubmission(), { annotatedScreenshot: fake }));
     expect(res.status).toBe(415);
 
     const svg = new Blob(["<svg/>"], { type: "image/svg+xml" });
-    expect((await h(makeRequest(makeSubmission(), { screenshot: svg }))).status).toBe(415);
+    expect((await h(makeRequest(makeSubmission(), { annotatedScreenshot: svg }))).status).toBe(415);
 
     const jpegLabelledPng = new Blob([JPEG_BYTES], { type: "image/png" });
-    const ok = await h(makeRequest(makeSubmission(), { screenshot: jpegLabelledPng }));
+    const ok = await h(makeRequest(makeSubmission(), { annotatedScreenshot: jpegLabelledPng }));
     expect(ok.status).toBe(201);
-    expect(inputs[0]!.screenshot?.contentType).toBe("image/jpeg");
-    expect(inputs[0]!.screenshot?.filename).toMatch(/\.jpg$/);
+    expect(inputs[0]!.annotatedScreenshot?.contentType).toBe("image/jpeg");
+    expect(inputs[0]!.annotatedScreenshot?.filename).toMatch(/\.jpg$/);
   });
 
   it("returns validation issues", async () => {
@@ -310,7 +318,7 @@ describe("handler with the Notion backend", () => {
     const fake = new FakeNotion();
     const res = await run(fake);
     expect(res.status).toBe(201);
-    expect(await res.json()).toMatchObject({ ok: true, pageId: "page-3", pageUrl: "https://www.notion.so/page-3" });
+    expect(await res.json()).toMatchObject({ ok: true, pageId: "page-2", pageUrl: "https://www.notion.so/page-2" });
   });
 
   it("returns duplicate when the Submission ID already exists in Notion", async () => {

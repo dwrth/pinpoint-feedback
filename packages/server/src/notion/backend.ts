@@ -181,11 +181,8 @@ export class NotionFeedbackBackend implements FeedbackBackend {
     const existing = await this.find(schema, s.submissionId);
     if (existing) return existing;
 
-    const [screenshot, annotatedScreenshot] = await Promise.all([
-      input.screenshot ? this.upload(input.screenshot) : undefined,
-      input.annotatedScreenshot ? this.upload(input.annotatedScreenshot) : undefined,
-    ]);
-    const uploads: UploadRefs = { screenshot, annotatedScreenshot };
+    const annotatedScreenshot = input.annotatedScreenshot ? await this.upload(input.annotatedScreenshot) : undefined;
+    const uploads: UploadRefs = { annotatedScreenshot };
     const children = buildChildren(s, uploads, this.categories, this.locale);
     const first = children.slice(0, NOTION_CHILDREN_PER_REQUEST);
     const rest = children.slice(NOTION_CHILDREN_PER_REQUEST);
@@ -243,7 +240,7 @@ export class NotionFeedbackBackend implements FeedbackBackend {
     return { id: page.id, url: page.url, duplicate: false };
   }
 
-  private async upload(file: NonNullable<FeedbackRecordInput["screenshot"]>) {
+  private async upload(file: NonNullable<FeedbackRecordInput["annotatedScreenshot"]>) {
     try {
       return await this.uploader.upload(file);
     } catch (error) {

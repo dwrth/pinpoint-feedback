@@ -1,6 +1,6 @@
 # Pinpoint Feedback
 
-Visual website feedback that lands in Notion. Visitors click a button, get a screenshot of the page, mark it up with pins, arrows, boxes, freehand and text, and send it. Each report becomes a page in **your Notion database** with the original and annotated screenshots attached. Notion is the only backend.
+Visual website feedback that lands in Notion. Visitors click a button, get a screenshot of the page, mark it up with pins, arrows, boxes, freehand and text, black out personal data with redaction boxes, and send it. Each report becomes a page in **your Notion database** with the original and annotated screenshots attached. Notion is the only backend.
 
 **[Live demo → pinpoint-feedback.dwrth.dev](https://pinpoint-feedback.dwrth.dev)**
 

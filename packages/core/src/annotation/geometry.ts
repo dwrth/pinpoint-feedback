@@ -46,7 +46,9 @@ export function normalizeRect(a: Point, b: Point): Rect {
   };
 }
 
-export function normalizeRectangle(r: RectangleAnnotation): RectangleAnnotation {
+type Box = Pick<RectangleAnnotation, "x" | "y" | "width" | "height">;
+
+export function normalizeRectangle<T extends Box>(r: T): T {
   if (r.width >= 0 && r.height >= 0) return r;
   const n = normalizeRect({ x: r.x, y: r.y }, { x: r.x + r.width, y: r.y + r.height });
   return { ...r, ...n };
@@ -127,6 +129,7 @@ export function translateAnnotation<T extends Annotation>(a: T, dx: number, dy: 
     case "freehand":
       return { ...a, points: a.points.map(move) };
     case "rectangle":
+    case "redaction":
       return { ...a, x: a.x + dx, y: a.y + dy };
     default:
       return a;
@@ -173,6 +176,10 @@ export function annotationBounds(a: Annotation, options: GeometryOptions = {}): 
     case "rectangle": {
       const n = normalizeRectangle(a);
       return { x: n.x - half, y: n.y - half, width: n.width + a.strokeWidth, height: n.height + a.strokeWidth };
+    }
+    case "redaction": {
+      const n = normalizeRectangle(a);
+      return { x: n.x, y: n.y, width: n.width, height: n.height };
     }
     case "arrow": {
       const head = arrowHeadLength(a.strokeWidth);
@@ -238,6 +245,15 @@ export function hitTestAnnotation(
         if (distanceToSegment(p, corners[i]!, corners[(i + 1) % 4]!) <= half + tolerance) return true;
       }
       return false;
+    }
+    case "redaction": {
+      const r = normalizeRectangle(a);
+      return (
+        p.x >= r.x - tolerance &&
+        p.x <= r.x + r.width + tolerance &&
+        p.y >= r.y - tolerance &&
+        p.y <= r.y + r.height + tolerance
+      );
     }
     case "freehand": {
       const pts = a.points;

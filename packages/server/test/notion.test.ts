@@ -4,7 +4,6 @@ import { NOTION_TEXT_MAX, NotionFileUploader, buildChildren, chunkText, richText
 import { FakeNotion, makeBackend, makeSubmission, notionError, pngBlob, silentLogger } from "./helpers";
 
 const files = (id: string) => ({
-  screenshot: { data: pngBlob(), filename: `pinpoint-${id}-original.png`, contentType: "image/png" },
   annotatedScreenshot: { data: pngBlob(), filename: `pinpoint-${id}-annotated.png`, contentType: "image/png" },
 });
 
@@ -14,10 +13,10 @@ describe("NotionFeedbackBackend", () => {
     const backend = makeBackend(fake, { projectId: "web" });
     const submission = makeSubmission();
     const record = await backend.createRecord({ submission, ...files("abc") });
-    expect(record).toEqual({ id: "page-3", url: "https://www.notion.so/page-3", duplicate: false });
+    expect(record).toEqual({ id: "page-2", url: "https://www.notion.so/page-2", duplicate: false });
 
     expect(fake.calls[0]).toMatchObject({ method: "databases.retrieve", args: { database_id: "01234567-89ab-cdef-0123-456789abcdef" } });
-    expect(fake.count("fileUploads.create")).toBe(2);
+    expect(fake.count("fileUploads.create")).toBe(1);
     expect(fake.calls.find((c) => c.method === "fileUploads.create")!.args).toMatchObject({ mode: "single_part", content_type: "image/png" });
 
     const page = fake.pages[0]!;
@@ -38,7 +37,7 @@ describe("NotionFeedbackBackend", () => {
     const annotatedId = p["Annotated Screenshot"].files[0].file_upload.id;
 
     const images = page.children.filter((b) => b.type === "image");
-    expect(images).toHaveLength(2);
+    expect(images).toHaveLength(1);
     expect(images[0].image).toMatchObject({ type: "file_upload", file_upload: { id: annotatedId } });
     const text = JSON.stringify(page.children);
     expect(text).toContain("A cross-origin iframe could not be captured.");
@@ -65,7 +64,8 @@ describe("NotionFeedbackBackend", () => {
     expect(added).not.toContain("Priority");
     expect(added).not.toContain("Browser");
     expect(added).not.toContain("Title");
-    expect(added).toEqual(expect.arrayContaining(["Description", "Category", "Screenshot", "Submission ID", "Created"]));
+    expect(added).toEqual(expect.arrayContaining(["Description", "Category", "Submission ID", "Created"]));
+    expect(added).not.toContain("Screenshot");
     expect(update.args.properties.Category.select.options.map((o: { name: string }) => o.name)).toContain("Feature request");
     expect(schema.properties.title?.name).toBe("Feedback");
     expect(schema.properties.status?.type).toBe("status");
@@ -257,6 +257,12 @@ describe("NotionFeedbackBackend", () => {
     const backend = makeBackend(fake);
     await expect(backend.getSchema()).rejects.toMatchObject({ code: "notion_unauthorized" });
     await expect(backend.getSchema()).resolves.toMatchObject({ dataSourceId: "ds-1" });
+  });
+
+  it("counts redacted areas among the shapes", () => {
+    const redaction = { id: "r", type: "redaction" as const, color: "#000000", strokeWidth: 0, x: 1, y: 1, width: 5, height: 5 };
+    const text = JSON.stringify(buildChildren(makeSubmission({ annotations: [redaction] }), {}));
+    expect(text).toContain("1 redacted area");
   });
 
   it("retries uploads on transient errors", async () => {

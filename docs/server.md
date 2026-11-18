@@ -120,7 +120,7 @@ For a `POST`, in order:
 6. **Idempotency key.** If an `Idempotency-Key` header is sent, it must equal `submissionId` (case-insensitive), else `400 validation` with an issue on `submissionId`. The dedupe key is always `submissionId`.
 7. **Honeypot.** A non-empty `website` field is rejected (`400 spam`).
 8. **Fill time.** If the client sent `openedAt`, a value more than 60 s in the future or less than `minFillTimeMs` ago is rejected (`400 spam`).
-9. **Files.** `screenshot` and `annotatedScreenshot` are optional. Each must be non-empty, at most `maxFileBytes` (`413`, `details: { maxFileBytes, field }`), and its magic bytes must identify PNG, JPEG or WebP; a declared type other than those (or `application/octet-stream`) is rejected (`415`). The sniffed type is what gets stored.
+9. **Files.** `annotatedScreenshot` is optional. A `screenshot` part sent by older widgets is ignored and never stored. The file must be non-empty, at most `maxFileBytes` (`413`, `details: { maxFileBytes, field }`), and its magic bytes must identify PNG, JPEG or WebP; a declared type other than those (or `application/octet-stream`) is rejected (`415`). The sniffed type is what gets stored.
 10. **Project.** The server value wins; the client value is used only when the server has none. See [Project ID](#project-id).
 11. **Dedupe.** See [Reliability](reliability.md#server-idempotency).
 12. **Persist** through the backend. Success is returned only once the backend confirms a record ID.
@@ -142,10 +142,10 @@ Failure:
 A screenshot over `maxFileBytes` gets `413` with the limit and the offending form field, so the client can re-fit the image and retry:
 
 ```json
-{ "ok": false, "submissionId": "…", "error": { "code": "payload_too_large", "message": "…", "retryable": false, "details": { "maxFileBytes": 5242880, "field": "screenshot" } } }
+{ "ok": false, "submissionId": "…", "error": { "code": "payload_too_large", "message": "…", "retryable": false, "details": { "maxFileBytes": 5242880, "field": "annotatedScreenshot" } } }
 ```
 
-`field` is `"screenshot"` or `"annotatedScreenshot"`. When the whole body is too large, `details` is `{ "maxFileBytes": … }` only.
+`field` is `"annotatedScreenshot"`. When the whole body is too large, `details` is `{ "maxFileBytes": … }` only.
 
 `submissionId` is included once the payload has been parsed. `retryAfter` (seconds) is added to the error, and a `Retry-After` header is set, when known. All JSON responses carry `Cache-Control: no-store`.
 

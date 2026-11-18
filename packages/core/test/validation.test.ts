@@ -123,3 +123,14 @@ describe("custom categories", () => {
     expect(validateSubmission(valid({ category: "bug" }), { categories: ["perf"] }).ok).toBe(false);
   });
 });
+
+describe("redaction annotations", () => {
+  it("accepts redaction boxes and requires their geometry", () => {
+    const redaction = { id: "r", type: "redaction", color: "#000000", strokeWidth: 0, x: 1, y: 2, width: 3, height: 4 };
+    const ok = validateSubmission(valid({ annotations: [redaction] }));
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.value.annotations[0]).toMatchObject({ type: "redaction", x: 1, y: 2, width: 3, height: 4 });
+    expect(validateSubmission(valid({ annotations: [{ ...redaction, width: undefined }] })).ok).toBe(false);
+  });
+});
+
