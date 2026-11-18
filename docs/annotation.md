@@ -21,7 +21,7 @@ The editor never modifies the input image. Two images come out of an editing ses
 
 | Tool | Interaction |
 | --- | --- |
-| `select` | Click an annotation to select it, drag it to move it (3 px threshold). Click empty space to deselect; dragging there pans. Double-click a text annotation to edit it, or a pin to edit its [note](#pin-notes). Hit tolerance is 6 CSS px for mouse/pen, 12 for touch. |
+| `select` | Click an annotation to select it, drag it to move it (3 px threshold). Drag a handle of the selected annotation to [resize](#resizing) it. Click empty space to deselect; dragging there pans. Double-click a text annotation to edit it, or a pin to edit its [note](#pin-notes). Hit tolerance is 6 CSS px for mouse/pen, 12 for touch. |
 | `pin` | Click inside the screenshot to drop a numbered pin, then optionally type a [note](#pin-notes). Clicking an existing pin edits its note instead of stacking a new pin. Numbers are 1-based in creation order and renumbered whenever pins are removed, so they stay sequential. |
 | `arrow` | Drag from tail to head. **Shift** snaps the angle to 45° steps. Arrows shorter than 4 screen px are discarded. |
 | `rectangle` | Drag a box. **Shift** constrains it to a square. Boxes narrower or shorter than 4 screen px are discarded. |
@@ -30,6 +30,21 @@ The editor never modifies the input image. Two images come out of an editing ses
 | `text` | Click to open a text box; click an existing text annotation to edit it. **Enter** commits, **Shift+Enter** adds a line, **Escape** cancels, blur commits. Clearing an existing text deletes it. |
 
 With any tool, double-clicking a pin edits its note.
+
+**After placing an item** (a pin, text, arrow, rectangle, redaction or freehand stroke) the tool switches back to `select` and the new item is selected, as in most drawing apps. The `pin` tool therefore drops one pin per click; press `P` (or pick the tool again) to place the next one. Editing an existing note or text doesn't switch tools.
+
+## Resizing
+
+With the `select` tool, the selected annotation shows handles on its outline. Drag a handle to resize it; the cursor changes to a resize cursor when hovering one. A resize is one undo step, and **Escape** during the drag cancels it.
+
+| Annotation | Handles |
+| --- | --- |
+| `rectangle`, `redaction` | All eight. The edges and corners you drag move; the opposite edges stay put. |
+| `arrow`, `freehand` | All eight. The path is stretched into the new box. A straight horizontal or vertical arrow only has handles at its two ends. |
+| `text` | The four corners. The font size scales uniformly from the opposite corner, and it never drops below 8 screenshot pixels. |
+| `pin` | None. Pins have a fixed marker size; drag a pin to move it. |
+
+A box or path never shrinks below 4 CSS px, the same minimum as drawing. Handles are not part of the annotation: they aren't drawn in the annotated export.
 
 Drawn points are clamped to the screenshot bounds. With the `pin` or `text` tool, clicking while a text box is open only commits the text; it doesn't also place a pin or open a new box.
 
@@ -41,7 +56,7 @@ New text is sized from the image width and the current stroke width (`textSizeFo
 
 Each pin can carry a short note (`PinAnnotation.note`, up to 1,000 characters). The Notion page lists it next to the pin number.
 
-- **After placing a pin** a compact note box opens next to it, already focused. Type the note and press **Enter** to save it; **Shift+Enter** adds a line. **Escape** closes the box without a note (the pin stays), and so does leaving it empty. Clicking elsewhere saves what was typed; with the `pin` tool that click also places the next pin, so pins can still be dropped in quick succession. **Mod+Z** in an untouched note box removes the pin again.
+- **After placing a pin** a compact note box opens next to it, already focused. Type the note and press **Enter** to save it; **Shift+Enter** adds a line. **Escape** closes the box without a note (the pin stays), and so does leaving it empty. Clicking elsewhere saves what was typed and leaves the `select` tool active. **Mod+Z** in an untouched note box removes the pin again.
 - **Editing an existing note**: double-click the pin (any tool), click it with the `pin` tool, or select it with the `select` tool and press **Enter**. Clearing the text removes the note.
 - **Undo**: saving, changing or removing a note is its own undo step, separate from placing the pin.
 - **Indicator**: pins with a note get a small badge at their top-right, on screen and in the annotated export.
@@ -298,6 +313,6 @@ createAnnotationEditor({ container, image, renderer });
 - A visually hidden `role="status"` / `aria-live="polite"` region announces changes: added, moved, updated and deleted annotations per type (pins with their number), saved and removed pin notes, undo/redo, clear, reset, zoom level (from the zoom keys and `zoomIn()`/`zoomOut()`) and fit (from the `0` key). Repeating the same message still re-announces it.
 - The text box and the pin note box are real `<textarea>` elements with their own labels (`textInput.label`, `pinNote.label`) and `dir="auto"`.
 - The editor element is forced to `direction: ltr`, so screenshots and coordinates never mirror in RTL layouts.
-- Placing, selecting and moving annotations needs a pointer. Pin notes can be edited from the keyboard (**Enter** on a selected pin). Undo, redo, zoom, fit and, in the widget, tool switching work from the keyboard.
+- Placing, selecting, moving and resizing annotations needs a pointer. Pin notes can be edited from the keyboard (**Enter** on a selected pin). Undo, redo, zoom, fit and, in the widget, tool switching work from the keyboard.
 
 Announcement texts are the `editor` section of a locale bundle; see [i18n](i18n.md).

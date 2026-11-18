@@ -9,6 +9,7 @@ export const TEXT_FONT_FAMILY =
 export const TEXT_FONT_WEIGHT = 600;
 
 export const MIN_PIN_RADIUS = 14;
+export const MIN_TEXT_FONT_SIZE = 8;
 export const DEFAULT_MAX_ZOOM = 8;
 export const ZOOM_STEP = 1.25;
 
