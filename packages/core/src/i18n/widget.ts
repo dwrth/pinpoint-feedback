@@ -50,6 +50,7 @@ export const enWidget = {
   "toolbar.resetScreenshot": "Reset screenshot",
   "toolbar.retake": "Retake",
   "toolbar.retakeTooltip": "Retake screenshot",
+  "toolbar.removeScreenshot": "Remove screenshot",
 
   "tool.select": "Select",
   "tool.pin": "Pin",
@@ -141,6 +142,12 @@ export const enWidget = {
   "confirm.description": "Your notes and annotations will be lost.",
   "confirm.keep": "Keep editing",
   "confirm.discard": "Discard",
+
+  "privacy.notice":
+    "Your feedback, any screenshot and technical details about this page and your browser are sent to the site operator and stored in Notion, only to process this report.",
+  "privacy.noticeWithContact":
+    "Your feedback, any screenshot, technical details about this page and your browser, and your name and email address are sent to the site operator and stored in Notion, only to process this report.",
+  "privacy.policyLink": "Privacy policy",
 } as const;
 
 export type WidgetMessages = MessagesOf<typeof enWidget>;
@@ -184,4 +191,9 @@ export const enWidgetContext: Partial<Record<WidgetMessageKey, string>> = {
   "error.notionNotFound": "Shown to site visitors: the site owner's Notion database is missing or not shared.",
   "success.title": "Notion is a product name; do not translate it.",
   "confirm.keep": "Button that cancels discarding and returns to the form.",
+  "toolbar.removeScreenshot": "Icon button tooltip: drop the screenshot and send the report without it.",
+  "privacy.notice":
+    "Small notice above the send button listing what is sent. Notion is a product name; do not translate it. Avoid addressing the reader where the language allows an impersonal phrasing.",
+  "privacy.noticeWithContact": "Like privacy.notice, used when the reporter's name and email are sent too.",
+  "privacy.policyLink": "Link to the site's privacy policy, shown after the privacy notice.",
 };

@@ -53,6 +53,7 @@ export const ar = defineLocale({
     "toolbar.resetScreenshot": "إعادة تعيين لقطة الشاشة",
     "toolbar.retake": "إعادة الالتقاط",
     "toolbar.retakeTooltip": "إعادة التقاط لقطة الشاشة",
+    "toolbar.removeScreenshot": "إزالة لقطة الشاشة",
 
     "tool.select": "تحديد",
     "tool.pin": "دبوس",
@@ -148,6 +149,10 @@ export const ar = defineLocale({
     "confirm.description": "ستُفقد ملاحظاتك وتعليقاتك التوضيحية.",
     "confirm.keep": "متابعة التحرير",
     "confirm.discard": "تجاهل",
+
+    "privacy.notice": "تُرسَل ملاحظاتك ولقطة الشاشة (إن وُجدت) والبيانات التقنية عن هذه الصفحة ومتصفحك إلى مشغّل الموقع وتُحفَظ في Notion لمعالجة هذا البلاغ فقط.",
+    "privacy.noticeWithContact": "تُرسَل ملاحظاتك ولقطة الشاشة (إن وُجدت) والبيانات التقنية عن هذه الصفحة ومتصفحك واسمك وبريدك الإلكتروني إلى مشغّل الموقع وتُحفَظ في Notion لمعالجة هذا البلاغ فقط.",
+    "privacy.policyLink": "سياسة الخصوصية",
   },
   editor: {
     "editor.label":

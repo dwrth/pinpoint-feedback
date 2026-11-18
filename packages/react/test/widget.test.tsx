@@ -462,6 +462,72 @@ describe("FeedbackWidget", () => {
     expect(submit.mock.calls[0]![0].website).toBe("");
   });
 
+  it("shows the default privacy notice above the send button", async () => {
+    const { client } = makeClient();
+    const { capturer } = makeCapturer();
+    render(<FeedbackWidget client={client} capturer={capturer} collectReporter={false} />);
+    await openDialog();
+    const notice = shadow().getByTestId("pinpoint-privacy-notice");
+    expect(notice.textContent).toMatch(/^Your feedback, any screenshot and technical details/);
+    expect(notice.textContent).not.toMatch(/email/);
+    expect(within(notice).queryByRole("link")).toBeNull();
+  });
+
+  it("mentions name and email in the notice when they are sent", async () => {
+    const { client } = makeClient();
+    const { capturer } = makeCapturer();
+    render(<FeedbackWidget client={client} capturer={capturer} reporter={{ name: "Ada", email: "ada@example.com" }} />);
+    await openDialog();
+    expect(shadow().getByTestId("pinpoint-privacy-notice").textContent).toMatch(/your name and email address/);
+  });
+
+  it("links the privacy policy and accepts reworded notice messages", async () => {
+    const { client } = makeClient();
+    const { capturer } = makeCapturer();
+    render(
+      <FeedbackWidget
+        client={client}
+        capturer={capturer}
+        privacyPolicyUrl="https://example.com/privacy"
+        messages={{ widget: { "privacy.noticeWithContact": "We store your report.", "privacy.policyLink": "Privacy" } }}
+      />,
+    );
+    await openDialog();
+    const notice = shadow().getByTestId("pinpoint-privacy-notice");
+    expect(notice.textContent).toBe("We store your report. Privacy");
+    const link = within(notice).getByRole("link", { name: "Privacy" });
+    expect(link.getAttribute("href")).toBe("https://example.com/privacy");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("renders custom notice content or hides the notice", async () => {
+    const { client } = makeClient();
+    const { capturer } = makeCapturer();
+    const { rerender } = render(
+      <FeedbackWidget client={client} capturer={capturer} privacyNotice={<span>Custom wording</span>} />,
+    );
+    await openDialog();
+    expect(shadow().getByTestId("pinpoint-privacy-notice").textContent).toBe("Custom wording");
+    rerender(<FeedbackWidget client={client} capturer={capturer} privacyNotice={false} />);
+    expect(shadow().queryByTestId("pinpoint-privacy-notice")).toBeNull();
+  });
+
+  it("removes the screenshot and submits without it", async () => {
+    const { client, submit } = makeClient([OK]);
+    const { capturer } = makeCapturer();
+    render(<FeedbackWidget client={client} capturer={capturer} />);
+    await openDialog();
+    fireEvent.click(shadow().getByRole("button", { name: "Remove screenshot" }));
+    expect(await shadow().findByText("No screenshot attached")).toBeTruthy();
+    fillTitle("Without image");
+    fireEvent.click(shadow().getByRole("button", { name: "Send feedback" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const [submission, files] = submit.mock.calls[0]!;
+    expect(files).toEqual({});
+    expect(submission.capture).toBeUndefined();
+  });
+
   it("opens with the hotkey", async () => {
     const { client } = makeClient();
     const { capturer, capture } = makeCapturer();

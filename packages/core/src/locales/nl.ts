@@ -49,6 +49,7 @@ export const nl = defineLocale({
     "toolbar.resetScreenshot": "Screenshot herstellen",
     "toolbar.retake": "Opnieuw",
     "toolbar.retakeTooltip": "Screenshot opnieuw maken",
+    "toolbar.removeScreenshot": "Screenshot verwijderen",
 
     "tool.select": "Selecteren",
     "tool.pin": "Pin",
@@ -142,6 +143,10 @@ export const nl = defineLocale({
     "confirm.description": "Je notities en annotaties gaan verloren.",
     "confirm.keep": "Verder bewerken",
     "confirm.discard": "Verwijderen",
+
+    "privacy.notice": "Je feedback, een eventuele screenshot en technische gegevens over deze pagina en je browser worden naar de beheerder van de website gestuurd en alleen voor het afhandelen van deze melding in Notion opgeslagen.",
+    "privacy.noticeWithContact": "Je feedback, een eventuele screenshot, technische gegevens over deze pagina en je browser en je naam en e-mailadres worden naar de beheerder van de website gestuurd en alleen voor het afhandelen van deze melding in Notion opgeslagen.",
+    "privacy.policyLink": "Privacyverklaring",
   },
   editor: {
     "editor.label":

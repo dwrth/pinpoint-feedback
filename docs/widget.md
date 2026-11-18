@@ -24,6 +24,8 @@ import { FeedbackProvider } from "pinpoint-feedback/nextjs";
 | `projectId` | `string` | – | Stored with each report so several sites can share one database. The `/nextjs` entry falls back to `NEXT_PUBLIC_PINPOINT_PROJECT_ID`. The server's `projectId` option overrides it. |
 | `reporter` | `{ name?: string; email?: string }` | – | A known reporter, such as the signed-in user. Hides the name/email fields and is sent instead. |
 | `collectReporter` | `boolean` | `true` | Show the optional name/email fields. Ignored when `reporter` is set. |
+| `privacyNotice` | `boolean \| ReactNode` | `true` | Notice above the send button saying what is sent and where it is stored. `false` hides it, any other node replaces the text. See [Privacy notice](#privacy-notice). |
+| `privacyPolicyUrl` | `string` | – | Linked after the privacy notice, opens in a new tab. |
 | `buttonLabel` | `string` | locale's `launcher.label` (`"Feedback"`) | Text on the floating button. |
 | `hotkey` | `string \| false` | `false` | Shortcut that toggles the widget, e.g. `"mod+shift+f"`. See [Hotkey](#hotkey). |
 | `zIndex` | `number` | `2147483000` | Stacking order of the widget's host element. |
@@ -104,6 +106,34 @@ Add `data-pinpoint-ignore` to any element to leave it and its subtree out of eve
 ```
 
 The constant is exported as `PINPOINT_IGNORE_ATTRIBUTE` from `pinpoint-feedback`. DOM capture drops excluded elements from the clone; screen capture hides them (`visibility: hidden`) while the frame is grabbed. See [Screenshots](screenshots.md#excluding-elements).
+
+## Privacy notice
+
+The form shows a short notice above the send button, so people know what leaves their browser before they send it:
+
+> Your feedback, any screenshot and technical details about this page and your browser are sent to the site operator and stored in Notion, only to process this report.
+
+When name and email are sent (a known `reporter`, or the name/email fields are shown), the `privacy.noticeWithContact` variant also lists them. Every built-in language ships both variants.
+
+| Goal | How |
+| --- | --- |
+| Link your privacy policy | `privacyPolicyUrl="/privacy"`; the link text is `privacy.policyLink`. |
+| Reword it per language | Override `privacy.notice`, `privacy.noticeWithContact` and `privacy.policyLink` through [`messages`](i18n.md#overriding-texts) or a custom locale. |
+| Use your own content | `privacyNotice={<>Reports are handled under our <a href="/privacy">privacy policy</a>.</>}` |
+| Turn it off | `privacyNotice={false}` |
+
+```tsx
+<FeedbackProvider
+  privacyPolicyUrl="/privacy"
+  messages={{ widget: { "privacy.notice": "Feedback and screenshot are stored to fix the reported problem." } }}
+/>
+```
+
+Custom content passed from a Server Component must be serializable (elements and strings, no event handlers).
+
+People can also drop the screenshot before sending with the **Remove screenshot** toolbar button; the report is then sent with page details only. Use [`data-pinpoint-ignore`](#excluding-elements-from-screenshots) to keep areas that show other people's data (member lists, chats, account details) out of every screenshot.
+
+The notice informs, it does not ask for consent: nothing is sent until the reporter presses send. Whether that is enough for your site, and what your privacy policy must say about Notion as a processor, is for you to decide.
 
 ## Hotkey
 

@@ -101,6 +101,8 @@ Built-in languages: English, German, French, Spanish, Italian, Portuguese (Brazi
 | `pinpoint-feedback/server` | `createFeedbackRequestHandler` for any Web `Request`/`Response` runtime |
 | `pinpoint-feedback/locales/<tag>` | Language bundles, e.g. `locales/de`, `locales/pt-BR` |
 
+The dialog shows a [privacy notice](docs/widget.md#privacy-notice) above the send button (what is sent, where it is stored), translated in every built-in language; reword it, link your privacy policy with `privacyPolicyUrl` or turn it off with `privacyNotice={false}`.
+
 The Notion token is only ever read on the server; `pinpoint-feedback/nextjs/server` imports `server-only` so it can't end up in a client bundle.
 
 ## Development
