@@ -10,7 +10,6 @@ export interface NotionPropertyNames {
   category: string;
   websiteUrl: string;
   pageTitle: string;
-  screenshot: string;
   annotatedScreenshot: string;
   reporterName: string;
   reporterEmail: string;
@@ -30,7 +29,6 @@ export const DEFAULT_PROPERTY_NAMES: NotionPropertyNames = {
   category: "Category",
   websiteUrl: "Website URL",
   pageTitle: "Page Title",
-  screenshot: "Screenshot",
   annotatedScreenshot: "Annotated Screenshot",
   reporterName: "Reporter Name",
   reporterEmail: "Reporter Email",
@@ -92,7 +90,6 @@ const FIELD_SPECS: Record<Exclude<PropertyField, "title">, FieldSpec> = {
   category: { kind: "choice", create: { select: { options: CATEGORY_OPTIONS } } },
   websiteUrl: { kind: "url", create: { url: {} } },
   pageTitle: { kind: "text", create: { rich_text: {} } },
-  screenshot: { kind: "files", create: { files: {} } },
   annotatedScreenshot: { kind: "files", create: { files: {} } },
   reporterName: { kind: "text", create: { rich_text: {} } },
   reporterEmail: { kind: "email", create: { email: {} } },

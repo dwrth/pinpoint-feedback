@@ -170,6 +170,15 @@ function annotation(c: Ctx, v: unknown, path: string): Annotation | undefined {
         ? { ...base, type: "rectangle", x, y, width, height }
         : undefined;
     }
+    case "redaction": {
+      const x = num(c, v.x, `${path}.x`);
+      const y = num(c, v.y, `${path}.y`);
+      const width = num(c, v.width, `${path}.width`);
+      const height = num(c, v.height, `${path}.height`);
+      return x !== undefined && y !== undefined && width !== undefined && height !== undefined
+        ? { ...base, type: "redaction", x, y, width, height }
+        : undefined;
+    }
     case "text": {
       const at = point(c, v.at, `${path}.at`);
       const text = str(c, v.text, `${path}.text`, LIMITS.textAnnotationMax, { required: true });

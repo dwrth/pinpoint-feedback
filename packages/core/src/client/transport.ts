@@ -70,9 +70,6 @@ export function buildFormData(submission: FeedbackSubmission, files: SubmissionF
   const form = new FormData();
   form.append(FORM_FIELDS.payload, JSON.stringify(submission));
   const id = submission.submissionId;
-  if (files.screenshot) {
-    appendFile(form, FORM_FIELDS.screenshot, files.screenshot, `screenshot-${id}.${fileExtensionFor(files.screenshot.type)}`);
-  }
   if (files.annotatedScreenshot) {
     const ext = fileExtensionFor(files.annotatedScreenshot.type);
     appendFile(form, FORM_FIELDS.annotatedScreenshot, files.annotatedScreenshot, `annotated-screenshot-${id}.${ext}`);

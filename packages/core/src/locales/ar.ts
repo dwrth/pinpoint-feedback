@@ -59,6 +59,7 @@ export const ar = defineLocale({
     "tool.pin": "دبوس",
     "tool.arrow": "سهم",
     "tool.rectangle": "مستطيل",
+    "tool.redaction": "تعتيم",
     "tool.freehand": "رسم",
     "tool.text": "نص",
 
@@ -172,6 +173,9 @@ export const ar = defineLocale({
     "arrow.added": "أُضيف السهم",
     "arrow.moved": "نُقل السهم",
     "arrow.deleted": "حُذف السهم",
+    "redaction.added": "أُضيف التعتيم",
+    "redaction.moved": "نُقل التعتيم",
+    "redaction.deleted": "حُذف التعتيم",
     "rectangle.added": "أُضيف المستطيل",
     "rectangle.moved": "نُقل المستطيل",
     "rectangle.deleted": "حُذف المستطيل",
@@ -294,14 +298,12 @@ export const ar = defineLocale({
 
     headingDescription: "الوصف",
     headingAnnotatedScreenshot: "لقطة الشاشة مع التعليقات التوضيحية",
-    headingOriginalScreenshot: "لقطة الشاشة الأصلية",
     headingAnnotations: "التعليقات التوضيحية",
     headingCaptureNotes: "ملاحظات الالتقاط",
     headingEnvironment: "البيئة",
 
     noDescription: "لم يُقدَّم وصف.",
     captionAnnotatedScreenshot: "لقطة الشاشة مع التعليقات التوضيحية",
-    captionOriginalScreenshot: "الالتقاط الأصلي دون تعليقات توضيحية",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -317,6 +319,7 @@ export const ar = defineLocale({
       many: "# سهمًا",
       other: "# سهم",
     },
+    redactionCount: { zero: "# منطقة معتمة", one: "منطقة معتمة واحدة", two: "منطقتان معتمتان", few: "# مناطق معتمة", many: "# منطقة معتمة", other: "# منطقة معتمة" },
     rectangleCount: {
       zero: "# مستطيل",
       one: "مستطيل واحد",

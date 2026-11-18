@@ -25,7 +25,7 @@ export interface Size {
 /* independent of zoom, pan or the size of the editor on screen.        */
 /* ------------------------------------------------------------------ */
 
-export const ANNOTATION_TOOLS = ["select", "pin", "freehand", "arrow", "rectangle", "text"] as const;
+export const ANNOTATION_TOOLS = ["select", "pin", "freehand", "arrow", "rectangle", "redaction", "text"] as const;
 export type AnnotationTool = (typeof ANNOTATION_TOOLS)[number];
 export type DrawingAnnotationType = Exclude<AnnotationTool, "select">;
 
@@ -64,6 +64,15 @@ export interface RectangleAnnotation extends AnnotationBase {
   height: number;
 }
 
+/** Opaque black box that hides content in the exported image. Always drawn black, whatever `color` holds. */
+export interface RedactionAnnotation extends AnnotationBase {
+  type: "redaction";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface TextAnnotation extends AnnotationBase {
   type: "text";
   at: Point;
@@ -77,6 +86,7 @@ export type Annotation =
   | FreehandAnnotation
   | ArrowAnnotation
   | RectangleAnnotation
+  | RedactionAnnotation
   | TextAnnotation;
 
 /* ------------------------------------------------------------------ */
@@ -177,7 +187,7 @@ export interface CaptureSummary {
 
 /**
  * JSON part of a submission. Sent as the `payload` field of a multipart/form-data
- * request alongside the optional `screenshot` and `annotatedScreenshot` file fields.
+ * request alongside the optional `annotatedScreenshot` file field.
  */
 export interface FeedbackSubmission {
   /** Client-generated UUID; used as idempotency key. */
@@ -201,7 +211,7 @@ export interface FeedbackSubmission {
 }
 
 export interface SubmissionFiles {
-  screenshot?: Blob;
+  /** Screenshot with annotations and redactions burned in. The un-annotated capture is never sent. */
   annotatedScreenshot?: Blob;
 }
 

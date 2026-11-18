@@ -5,7 +5,7 @@ import { makeSubmission } from "./client-helpers";
 
 const entry = (createdAt: string, attempts = 0): OutboxEntry => ({
   submission: makeSubmission({ createdAt }),
-  files: { screenshot: new Blob(["x"], { type: "image/png" }) },
+  files: { annotatedScreenshot: new Blob(["x"], { type: "image/png" }) },
   attempts,
 });
 

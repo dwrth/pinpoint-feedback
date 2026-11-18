@@ -323,3 +323,23 @@ describe("renderAnnotations", () => {
     expect(rec.named("arc")[0]!.args.slice(0, 3)).toEqual([3, 4, 3]);
   });
 });
+
+describe("redactions", () => {
+  const box: Annotation = { id: "x", type: "redaction", color: "#ef4444", strokeWidth: 0, x: 10, y: 10, width: 20, height: 10 };
+
+  it("is hit-tested and bounded as a filled box", () => {
+    expect(hitTestAnnotation(box, { x: 20, y: 15 }, 0)).toBe(true);
+    expect(hitTestAnnotation(box, { x: 40, y: 40 }, 2)).toBe(false);
+    expect(annotationBounds(box)).toEqual({ x: 10, y: 10, width: 20, height: 10 });
+    expect(translateAnnotation(box, 5, -5)).toMatchObject({ x: 15, y: 5 });
+  });
+
+  it("paints opaque black, snapped outward to whole pixels, whatever its color", () => {
+    const rec = createRecordingContext();
+    renderAnnotations(rec.ctx, [{ ...box, x: 10.5, y: 20.2, width: 30.2, height: 5 }]);
+    expect(rec.props.fillStyle).toBe("#000000");
+    expect(rec.named("fillRect")[0]!.args).toEqual([10, 20, 31, 6]);
+    expect(rec.named("stroke")).toHaveLength(0);
+  });
+});
+

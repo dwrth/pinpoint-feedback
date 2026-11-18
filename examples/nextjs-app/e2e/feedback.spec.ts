@@ -97,6 +97,9 @@ async function annotate(page: Page, dialog: Locator) {
 
   await dialog.getByRole("button", { name: "Rectangle" }).click();
   await drag(page, at(0.5, 0.3), at(0.75, 0.6));
+
+  await dialog.getByRole("button", { name: "Redaction" }).click();
+  await drag(page, at(0.1, 0.8), at(0.3, 0.9));
 }
 
 test("offers the categories from feedback.config.ts", async ({ page }) => {
@@ -170,7 +173,7 @@ test("captures, annotates and files feedback in Notion", async ({ page, request,
   expect(created.plain.Created).toEqual(expect.any(String));
 
   const uploads = await mockUploads(request);
-  expect(uploads).toHaveLength(2);
+  expect(uploads).toHaveLength(1);
   for (const upload of uploads) {
     expect(upload.status).toBe("attached");
     expect(upload.content_length).toBeGreaterThan(1000);
@@ -178,11 +181,10 @@ test("captures, annotates and files feedback in Notion", async ({ page, request,
     if (upload.content_type === "image/png") expect(upload.magic.startsWith("89504e47")).toBe(true);
     expect(upload.filename).toContain(result.submissionId.slice(0, 8));
   }
-  const screenshotIds = created.plain.Screenshot as string[];
+  expect(created.plain.Screenshot ?? []).toEqual([]);
   const annotatedIds = created.plain["Annotated Screenshot"] as string[];
-  expect(screenshotIds).toHaveLength(1);
   expect(annotatedIds).toHaveLength(1);
-  expect(new Set([...screenshotIds, ...annotatedIds])).toEqual(new Set(uploads.map((u) => u.id)));
+  expect(new Set(annotatedIds)).toEqual(new Set(uploads.map((u) => u.id)));
 
   const texts = created.children.map(blockText);
   const images = created.children.filter((b) => b.type === "image").map((b) => b.image.file_upload.id);
@@ -190,6 +192,7 @@ test("captures, annotates and files feedback in Notion", async ({ page, request,
   expect(texts).toContain("Annotations");
   expect(texts.some((t) => t.startsWith("#1") && t.includes(PIN_NOTE))).toBe(true);
   expect(texts.some((t) => /1 rectangle/.test(t))).toBe(true);
+  expect(texts.some((t) => /1 redacted area/.test(t))).toBe(true);
   expect(texts.some((t) => t.includes(`Submission ID: ${result.submissionId}`))).toBe(true);
   expect(texts).toContain("Capture notes");
   expect(texts.join("\n")).toMatch(/iframe/i);

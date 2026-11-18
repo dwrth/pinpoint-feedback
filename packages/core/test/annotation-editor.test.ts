@@ -689,3 +689,38 @@ describe("createAnnotationEditor: pin notes", () => {
     expect(withNote).toBe(without + 2);
   });
 });
+
+describe("redaction tool", () => {
+  it("draws black boxes regardless of the category color and burns them into the export", async () => {
+    const { editor, wrapper } = await setup();
+    editor.setTool("redaction");
+    editor.setColor("#22c55e");
+    drag(wrapper, [
+      [100, 100],
+      [150, 160],
+    ]);
+    const box = editor.getAnnotations()[0];
+    if (box?.type !== "redaction") throw new Error("expected a redaction");
+    expect(box.color).toBe("#000000");
+
+    await editor.exportAnnotated();
+    const fills = contexts[contexts.length - 1]!.named("fillRect");
+    expect(fills).toHaveLength(1);
+    expect(fills[0]!.args).toEqual([
+      Math.floor(box.x),
+      Math.floor(box.y),
+      Math.ceil(box.x + box.width) - Math.floor(box.x),
+      Math.ceil(box.y + box.height) - Math.floor(box.y),
+    ]);
+  });
+
+  it("ignores redactions that are too small to see", async () => {
+    const { editor, wrapper } = await setup({ tool: "redaction" });
+    drag(wrapper, [
+      [100, 100],
+      [101, 140],
+    ]);
+    expect(editor.getAnnotations()).toHaveLength(0);
+  });
+});
+

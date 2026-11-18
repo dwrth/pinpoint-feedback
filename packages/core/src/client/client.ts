@@ -283,7 +283,6 @@ class Client implements FeedbackClient {
   private async prepareFiles(files: SubmissionFiles): Promise<SubmissionFiles> {
     const fit = this.options.fitImage ?? fitImageToSize;
     const out: SubmissionFiles = {};
-    if (files.screenshot) out.screenshot = (await fit(files.screenshot, this.maxFileBytes)).blob;
     if (files.annotatedScreenshot) out.annotatedScreenshot = (await fit(files.annotatedScreenshot, this.maxFileBytes)).blob;
     return out;
   }
@@ -301,7 +300,7 @@ class Client implements FeedbackClient {
     if (result.ok || result.error.code !== "payload_too_large") return false;
     const limit = serverFileLimit(result.error.details);
     if (limit === undefined) return false;
-    const largest = Math.max(0, ...[entry.files.screenshot, entry.files.annotatedScreenshot].map((f) => f?.size ?? 0));
+    const largest = entry.files.annotatedScreenshot?.size ?? 0;
     if (limit >= largest) return false;
     this.maxFileBytes = Math.min(this.maxFileBytes, limit);
     try {
@@ -315,6 +314,7 @@ class Client implements FeedbackClient {
 
   private async send(entry: OutboxEntry, signal: AbortSignal | undefined): Promise<SubmissionResult> {
     const id = entry.submission.submissionId;
+    if (dropLegacyOriginal(entry.files)) await this.safe(() => this.outbox.put(entry));
     entry.attempts += 1;
     entry.lastAttemptAt = this.now();
     let result: SubmissionResult;
@@ -375,4 +375,12 @@ export function createFeedbackClient(options: CreateFeedbackClientOptions): Feed
   retryPending(options?: { signal?: AbortSignal; force?: boolean }): Promise<SubmissionResult[]>;
 } {
   return new Client(options);
+}
+
+/** Entries queued before the original screenshot was dropped may still hold it. */
+function dropLegacyOriginal(files: SubmissionFiles): boolean {
+  const legacy = files as SubmissionFiles & { screenshot?: Blob };
+  if (legacy.screenshot === undefined) return false;
+  delete legacy.screenshot;
+  return true;
 }

@@ -56,6 +56,7 @@ export const enWidget = {
   "tool.pin": "Pin",
   "tool.arrow": "Arrow",
   "tool.rectangle": "Rectangle",
+  "tool.redaction": "Redaction",
   "tool.freehand": "Draw",
   "tool.text": "Text",
 
@@ -170,6 +171,7 @@ export const enWidgetContext: Partial<Record<WidgetMessageKey, string>> = {
   "tool.pin": "Annotation tool: numbered marker dropped on the screenshot.",
   "tool.arrow": "Annotation tool: draw an arrow (noun).",
   "tool.rectangle": "Annotation tool: draw a rectangle (noun).",
+  "tool.redaction": "Annotation tool: black box that hides personal data (noun).",
   "tool.freehand": "Annotation tool: freehand drawing (verb or noun, keep short).",
   "tool.text": "Annotation tool: place a text label (noun).",
   "stroke.thinShort": "Single-letter button label for a thin line (Small). Fits ~1-2 characters.",

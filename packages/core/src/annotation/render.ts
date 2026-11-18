@@ -5,10 +5,11 @@ import type {
   FreehandAnnotation,
   PinAnnotation,
   RectangleAnnotation,
+  RedactionAnnotation,
   Size,
   TextAnnotation,
 } from "../types";
-import { SELECTION_COLOR, TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT, pinRadiusFor, textFont } from "./constants";
+import { REDACTION_COLOR, SELECTION_COLOR, TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT, pinRadiusFor, textFont } from "./constants";
 import { annotationBounds, arrowHeadLength, normalizeRectangle, textLines } from "./geometry";
 
 export interface RenderAnnotationsOptions extends AnnotationRenderOptions {
@@ -171,6 +172,15 @@ function drawRectangle(ctx: Canvas2D, a: RectangleAnnotation): void {
   ctx.stroke();
 }
 
+/** Snaps outward to whole pixels so no partly covered edge pixel of the original shows through. */
+function drawRedaction(ctx: Canvas2D, a: RedactionAnnotation): void {
+  const r = normalizeRectangle(a);
+  const x = Math.floor(r.x);
+  const y = Math.floor(r.y);
+  ctx.fillStyle = REDACTION_COLOR;
+  ctx.fillRect(x, y, Math.ceil(r.x + r.width) - x, Math.ceil(r.y + r.height) - y);
+}
+
 function drawText(ctx: Canvas2D, a: TextAnnotation): void {
   const lineHeight = a.fontSize * TEXT_LINE_HEIGHT;
   const offset = (lineHeight - a.fontSize) / 2;
@@ -245,6 +255,9 @@ export function renderAnnotations(
         break;
       case "rectangle":
         drawRectangle(ctx, a);
+        break;
+      case "redaction":
+        drawRedaction(ctx, a);
         break;
       case "text":
         drawText(ctx, a);

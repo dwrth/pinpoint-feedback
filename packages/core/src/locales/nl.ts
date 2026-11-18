@@ -55,6 +55,7 @@ export const nl = defineLocale({
     "tool.pin": "Pin",
     "tool.arrow": "Pijl",
     "tool.rectangle": "Rechthoek",
+    "tool.redaction": "Afschermen",
     "tool.freehand": "Tekenen",
     "tool.text": "Tekst",
 
@@ -167,6 +168,9 @@ export const nl = defineLocale({
     "arrow.added": "Pijl toegevoegd",
     "arrow.moved": "Pijl verplaatst",
     "arrow.deleted": "Pijl verwijderd",
+    "redaction.added": "Afscherming toegevoegd",
+    "redaction.moved": "Afscherming verplaatst",
+    "redaction.deleted": "Afscherming verwijderd",
     "rectangle.added": "Rechthoek toegevoegd",
     "rectangle.moved": "Rechthoek verplaatst",
     "rectangle.deleted": "Rechthoek verwijderd",
@@ -252,14 +256,12 @@ export const nl = defineLocale({
 
     headingDescription: "Beschrijving",
     headingAnnotatedScreenshot: "Screenshot met annotaties",
-    headingOriginalScreenshot: "Originele screenshot",
     headingAnnotations: "Annotaties",
     headingCaptureNotes: "Opmerkingen bij de opname",
     headingEnvironment: "Omgeving",
 
     noDescription: "Geen beschrijving opgegeven.",
     captionAnnotatedScreenshot: "Screenshot met annotaties",
-    captionOriginalScreenshot: "Originele opname zonder annotaties",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -268,6 +270,7 @@ export const nl = defineLocale({
     quotedText: "“{text}”",
     shapesLabel: "Vormen",
     arrowCount: { one: "# pijl", other: "# pijlen" },
+    redactionCount: { one: "# afgeschermd gebied", other: "# afgeschermde gebieden" },
     rectangleCount: { one: "# rechthoek", other: "# rechthoeken" },
     freehandCount: { one: "# tekening uit de vrije hand", other: "# tekeningen uit de vrije hand" },
 

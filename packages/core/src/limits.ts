@@ -25,6 +25,5 @@ export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number];
 /** Multipart field names used by the HTTP transport and server handler. */
 export const FORM_FIELDS = {
   payload: "payload",
-  screenshot: "screenshot",
   annotatedScreenshot: "annotatedScreenshot",
 } as const;

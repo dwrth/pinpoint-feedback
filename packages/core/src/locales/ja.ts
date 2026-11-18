@@ -54,6 +54,7 @@ export const ja = defineLocale({
     "tool.pin": "ピン",
     "tool.arrow": "矢印",
     "tool.rectangle": "四角形",
+    "tool.redaction": "マスキング",
     "tool.freehand": "フリーハンド",
     "tool.text": "テキスト",
 
@@ -162,6 +163,9 @@ export const ja = defineLocale({
     "arrow.added": "矢印を追加しました",
     "arrow.moved": "矢印を移動しました",
     "arrow.deleted": "矢印を削除しました",
+    "redaction.added": "マスキングを追加しました",
+    "redaction.moved": "マスキングを移動しました",
+    "redaction.deleted": "マスキングを削除しました",
     "rectangle.added": "四角形を追加しました",
     "rectangle.moved": "四角形を移動しました",
     "rectangle.deleted": "四角形を削除しました",
@@ -234,14 +238,12 @@ export const ja = defineLocale({
 
     headingDescription: "説明",
     headingAnnotatedScreenshot: "注釈付きスクリーンショット",
-    headingOriginalScreenshot: "元のスクリーンショット",
     headingAnnotations: "注釈",
     headingCaptureNotes: "キャプチャに関する注意事項",
     headingEnvironment: "環境",
 
     noDescription: "説明はありません。",
     captionAnnotatedScreenshot: "注釈付きのスクリーンショット",
-    captionOriginalScreenshot: "注釈なしの元のキャプチャ",
 
     fieldLabel: "{label}：",
     pinNumber: "#{number}",
@@ -250,6 +252,7 @@ export const ja = defineLocale({
     quotedText: "「{text}」",
     shapesLabel: "図形",
     arrowCount: { other: "矢印 # 個" },
+    redactionCount: { other: "マスキング # 箇所" },
     rectangleCount: { other: "四角形 # 個" },
     freehandCount: { other: "フリーハンド描画 # 個" },
 

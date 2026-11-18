@@ -38,7 +38,6 @@ function categoryOf(s: FeedbackSubmission, categories: readonly CategoryDefiniti
 }
 
 export interface UploadRefs {
-  screenshot?: { id: string; filename: string };
   annotatedScreenshot?: { id: string; filename: string };
 }
 
@@ -125,7 +124,6 @@ export function buildProperties(
   set("category", categoryOf(s, options.categories ?? DEFAULT_CATEGORIES).label);
   set("websiteUrl", s.metadata.url);
   set("pageTitle", s.metadata.pageTitle);
-  setFile("screenshot", uploads.screenshot);
   setFile("annotatedScreenshot", uploads.annotatedScreenshot);
   set("reporterName", s.reporter?.name);
   set("reporterEmail", s.reporter?.email);
@@ -186,6 +184,7 @@ const SHAPE_KEYS = {
   arrow: "arrowCount",
   rectangle: "rectangleCount",
   freehand: "freehandCount",
+  redaction: "redactionCount",
 } as const satisfies Record<Exclude<Annotation["type"], "pin" | "text">, keyof EnReport>;
 
 interface ReportContext {
@@ -257,7 +256,9 @@ function annotationBlocks(annotations: Annotation[], ctx: ReportContext): BlockR
   }
   const counts = new Map<keyof typeof SHAPE_KEYS, number>();
   for (const a of annotations) {
-    if (a.type === "arrow" || a.type === "rectangle" || a.type === "freehand") counts.set(a.type, (counts.get(a.type) ?? 0) + 1);
+    if (a.type === "arrow" || a.type === "rectangle" || a.type === "freehand" || a.type === "redaction") {
+      counts.set(a.type, (counts.get(a.type) ?? 0) + 1);
+    }
   }
   if (counts.size > 0) {
     const parts = [...counts].map(([type, count]) => t(SHAPE_KEYS[type], { count }));
@@ -290,9 +291,6 @@ export function buildChildren(
 
   if (uploads.annotatedScreenshot) {
     blocks.push(heading(t("headingAnnotatedScreenshot")), image(uploads.annotatedScreenshot.id, t("captionAnnotatedScreenshot")));
-  }
-  if (uploads.screenshot) {
-    blocks.push(heading(t("headingOriginalScreenshot")), image(uploads.screenshot.id, t("captionOriginalScreenshot")));
   }
 
   const annotations = annotationBlocks(s.annotations, ctx);

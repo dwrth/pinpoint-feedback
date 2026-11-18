@@ -56,6 +56,7 @@ export const it = defineLocale({
     "tool.pin": "Segnaposto",
     "tool.arrow": "Freccia",
     "tool.rectangle": "Rettangolo",
+    "tool.redaction": "Oscurare",
     "tool.freehand": "Disegno",
     "tool.text": "Testo",
 
@@ -167,6 +168,9 @@ export const it = defineLocale({
     "arrow.added": "Freccia aggiunta",
     "arrow.moved": "Freccia spostata",
     "arrow.deleted": "Freccia eliminata",
+    "redaction.added": "Oscuramento aggiunto",
+    "redaction.moved": "Oscuramento spostato",
+    "redaction.deleted": "Oscuramento eliminato",
     "rectangle.added": "Rettangolo aggiunto",
     "rectangle.moved": "Rettangolo spostato",
     "rectangle.deleted": "Rettangolo eliminato",
@@ -260,14 +264,12 @@ export const it = defineLocale({
 
     headingDescription: "Descrizione",
     headingAnnotatedScreenshot: "Screenshot annotato",
-    headingOriginalScreenshot: "Screenshot originale",
     headingAnnotations: "Annotazioni",
     headingCaptureNotes: "Note sull’acquisizione",
     headingEnvironment: "Ambiente",
 
     noDescription: "Nessuna descrizione fornita.",
     captionAnnotatedScreenshot: "Screenshot con annotazioni",
-    captionOriginalScreenshot: "Acquisizione originale senza annotazioni",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -276,6 +278,7 @@ export const it = defineLocale({
     quotedText: "«{text}»",
     shapesLabel: "Forme",
     arrowCount: { one: "# freccia", many: "# frecce", other: "# frecce" },
+    redactionCount: { one: "# area oscurata", many: "# aree oscurate", other: "# aree oscurate" },
     rectangleCount: { one: "# rettangolo", many: "# rettangoli", other: "# rettangoli" },
     freehandCount: { one: "# disegno a mano libera", many: "# disegni a mano libera", other: "# disegni a mano libera" },
 

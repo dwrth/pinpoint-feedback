@@ -61,7 +61,7 @@ Backoff: `1s × 3^(n−1)`, capped at 30 s, with ±20 % jitter (1 s, 3 s, 9 s, �
 | Caller abort | no | yes |
 | `validation`, `spam`, `payload_too_large`, `unsupported_media_type` | no | **no** (dropped) |
 
-The dropped codes can never succeed with the same payload. A screenshot `413` carries `details: { maxFileBytes, field }` (`field` is `"screenshot"` or `"annotatedScreenshot"`), and a body-size `413` carries `details: { maxFileBytes }`, so the client can re-fit the screenshots to the server's limit and send again. Everything else stays, because a fixed configuration or a recovered Notion can still accept it later.
+The dropped codes can never succeed with the same payload. A screenshot `413` carries `details: { maxFileBytes, field }` (`field` is `"annotatedScreenshot"`), and a body-size `413` carries `details: { maxFileBytes }`, so the client can re-fit the screenshots to the server's limit and send again. Everything else stays, because a fixed configuration or a recovered Notion can still accept it later.
 
 Before queueing, the client also validates the payload and fits each screenshot into `maxFileBytes` (default 5 MB) by re-encoding or downscaling it. Payload validation failures are returned immediately and nothing is queued.
 

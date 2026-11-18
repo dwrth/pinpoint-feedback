@@ -299,15 +299,14 @@ export default function Dialog(props: DialogProps) {
     const files: SubmissionFiles = {};
     let annotations: FeedbackSubmission["annotations"] = [];
     if (screenshot) {
-      files.screenshot = screenshot.blob;
-      if (editor) {
-        try {
-          await editor.ready;
-          annotations = editor.getAnnotations();
-          files.annotatedScreenshot = await editor.exportAnnotated("image/png");
-        } catch {
-          delete files.annotatedScreenshot;
-        }
+      try {
+        if (!editor) throw new Error("Annotation editor is not ready");
+        await editor.ready;
+        annotations = editor.getAnnotations();
+        files.annotatedScreenshot = await editor.exportAnnotated("image/png");
+      } catch {
+        setStatus({ kind: "error", error: { code: "validation", message: t("error.unknown"), retryable: true } });
+        return;
       }
     }
 

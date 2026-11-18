@@ -230,7 +230,7 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
 
   const persist = async (
     submission: FeedbackSubmission,
-    files: { screenshot?: UploadableFile; annotatedScreenshot?: UploadableFile },
+    files: { annotatedScreenshot?: UploadableFile },
   ): Promise<FeedbackRecord> => {
     const b = getBackend();
     if (!checksDuplicatesItself() && b.findBySubmissionId) {
@@ -310,17 +310,12 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
       }
     }
 
-    const files: { screenshot?: UploadableFile; annotatedScreenshot?: UploadableFile } = {};
-    for (const [field, suffix] of [
-      [FORM_FIELDS.screenshot, "original"],
-      [FORM_FIELDS.annotatedScreenshot, "annotated"],
-    ] as const) {
-      const value = form.get(field);
-      if (value === null) continue;
-      if (typeof value === "string") {
-        if (value === "") continue;
-        throw fail("validation", `"${field}" must be a file.`);
-      }
+    // A `screenshot` part sent by older widgets is ignored: the un-annotated capture is never stored.
+    const files: { annotatedScreenshot?: UploadableFile } = {};
+    const field = FORM_FIELDS.annotatedScreenshot;
+    const value = form.get(field);
+    if (value !== null && value !== "") {
+      if (typeof value === "string") throw fail("validation", `"${field}" must be a file.`);
       if (value.size === 0) throw fail("validation", `"${field}" is empty.`);
       if (value.size > maxFileBytes) {
         throw fail("payload_too_large", `"${field}" exceeds the ${Math.floor(maxFileBytes / 1024)} KB limit.`, {
@@ -333,11 +328,10 @@ export function createFeedbackRequestHandler(options: FeedbackHandlerOptions = {
       }
       const sniffed = await sniffImageType(value);
       if (!sniffed) throw fail("unsupported_media_type", `"${field}" is not a valid PNG, JPEG or WebP image.`);
-      const key = field === FORM_FIELDS.screenshot ? "screenshot" : "annotatedScreenshot";
-      files[key] = {
+      files.annotatedScreenshot = {
         data: value,
         contentType: sniffed,
-        filename: `pinpoint-${submissionId.slice(0, 8)}-${suffix}.${extensionFor(sniffed)}`,
+        filename: `pinpoint-${submissionId.slice(0, 8)}-annotated.${extensionFor(sniffed)}`,
       };
     }
 

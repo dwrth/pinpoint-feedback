@@ -47,7 +47,7 @@ export function makeSubmission(overrides: Partial<FeedbackSubmission> = {}): Fee
 
 export function makeRequest(
   payload: unknown,
-  files: { screenshot?: Blob; annotatedScreenshot?: Blob } = { screenshot: pngBlob(), annotatedScreenshot: pngBlob() },
+  files: { screenshot?: Blob; annotatedScreenshot?: Blob } = { annotatedScreenshot: pngBlob() },
   init: { headers?: Record<string, string>; method?: string; url?: string } = {},
 ): Request {
   const form = new FormData();

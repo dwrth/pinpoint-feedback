@@ -56,6 +56,7 @@ export const es = defineLocale({
     "tool.pin": "Marcador",
     "tool.arrow": "Flecha",
     "tool.rectangle": "Rectángulo",
+    "tool.redaction": "Censurar",
     "tool.freehand": "Dibujar",
     "tool.text": "Texto",
 
@@ -168,6 +169,9 @@ export const es = defineLocale({
     "arrow.added": "Flecha añadida",
     "arrow.moved": "Flecha movida",
     "arrow.deleted": "Flecha eliminada",
+    "redaction.added": "Censura añadida",
+    "redaction.moved": "Censura movida",
+    "redaction.deleted": "Censura eliminada",
     "rectangle.added": "Rectángulo añadido",
     "rectangle.moved": "Rectángulo movido",
     "rectangle.deleted": "Rectángulo eliminado",
@@ -261,14 +265,12 @@ export const es = defineLocale({
 
     headingDescription: "Descripción",
     headingAnnotatedScreenshot: "Captura anotada",
-    headingOriginalScreenshot: "Captura original",
     headingAnnotations: "Anotaciones",
     headingCaptureNotes: "Notas de captura",
     headingEnvironment: "Entorno",
 
     noDescription: "No se proporcionó descripción.",
     captionAnnotatedScreenshot: "Captura de pantalla con anotaciones",
-    captionOriginalScreenshot: "Captura original sin anotaciones",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -277,6 +279,7 @@ export const es = defineLocale({
     quotedText: "«{text}»",
     shapesLabel: "Formas",
     arrowCount: { one: "# flecha", many: "# flechas", other: "# flechas" },
+    redactionCount: { one: "# área censurada", many: "# áreas censuradas", other: "# áreas censuradas" },
     rectangleCount: { one: "# rectángulo", many: "# rectángulos", other: "# rectángulos" },
     freehandCount: { one: "# trazo a mano alzada", many: "# trazos a mano alzada", other: "# trazos a mano alzada" },
 

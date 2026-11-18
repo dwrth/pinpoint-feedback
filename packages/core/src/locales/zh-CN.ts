@@ -54,6 +54,7 @@ export const zhCN = defineLocale({
     "tool.pin": "图钉",
     "tool.arrow": "箭头",
     "tool.rectangle": "矩形",
+    "tool.redaction": "遮挡",
     "tool.freehand": "画笔",
     "tool.text": "文本",
 
@@ -161,6 +162,9 @@ export const zhCN = defineLocale({
     "arrow.added": "已添加箭头",
     "arrow.moved": "已移动箭头",
     "arrow.deleted": "已删除箭头",
+    "redaction.added": "已添加遮挡",
+    "redaction.moved": "已移动遮挡",
+    "redaction.deleted": "已删除遮挡",
     "rectangle.added": "已添加矩形",
     "rectangle.moved": "已移动矩形",
     "rectangle.deleted": "已删除矩形",
@@ -231,14 +235,12 @@ export const zhCN = defineLocale({
 
     headingDescription: "描述",
     headingAnnotatedScreenshot: "带标注的截图",
-    headingOriginalScreenshot: "原始截图",
     headingAnnotations: "标注",
     headingCaptureNotes: "截图说明",
     headingEnvironment: "环境信息",
 
     noDescription: "未提供描述。",
     captionAnnotatedScreenshot: "带标注的截图",
-    captionOriginalScreenshot: "不含标注的原始截图",
 
     fieldLabel: "{label}：",
     pinNumber: "#{number}",
@@ -247,6 +249,7 @@ export const zhCN = defineLocale({
     quotedText: "“{text}”",
     shapesLabel: "图形",
     arrowCount: { other: "# 个箭头" },
+    redactionCount: { other: "# 处遮挡" },
     rectangleCount: { other: "# 个矩形" },
     freehandCount: { other: "# 处手绘" },
 

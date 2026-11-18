@@ -14,14 +14,12 @@ export const enReport = {
 
   headingDescription: "Description",
   headingAnnotatedScreenshot: "Annotated screenshot",
-  headingOriginalScreenshot: "Original screenshot",
   headingAnnotations: "Annotations",
   headingCaptureNotes: "Capture notes",
   headingEnvironment: "Environment",
 
   noDescription: "No description provided.",
   captionAnnotatedScreenshot: "Screenshot with annotations",
-  captionOriginalScreenshot: "Original capture without annotations",
 
   fieldLabel: "{label}: ",
   pinNumber: "#{number}",
@@ -31,6 +29,7 @@ export const enReport = {
   shapesLabel: "Shapes",
   arrowCount: { one: "# arrow", other: "# arrows" },
   rectangleCount: { one: "# rectangle", other: "# rectangles" },
+  redactionCount: { one: "# redacted area", other: "# redacted areas" },
   freehandCount: { one: "# freehand drawing", other: "# freehand drawings" },
 
   warningCrossOriginIframe: {

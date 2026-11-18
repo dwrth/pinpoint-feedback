@@ -24,10 +24,9 @@ describe("HttpFeedbackTransport request", () => {
       fetch,
       headers: { "X-Project": "p1", "Content-Type": "application/json" },
     });
-    const screenshot = new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" });
     const annotated = new Blob([new Uint8Array([4, 5])], { type: "image/jpeg" });
 
-    const result = await transport.submit(sub, { screenshot, annotatedScreenshot: annotated });
+    const result = await transport.submit(sub, { annotatedScreenshot: annotated });
 
     expect(result).toEqual({ ok: true, submissionId: sub.submissionId, pageId: "page-1", pageUrl: "https://notion.so/page-1", duplicate: false });
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -42,9 +41,7 @@ describe("HttpFeedbackTransport request", () => {
     const form = init?.body as FormData;
     expect(form).toBeInstanceOf(FormData);
     expect(JSON.parse(form.get(FORM_FIELDS.payload) as string)).toEqual(sub);
-    const shot = form.get(FORM_FIELDS.screenshot) as File;
-    expect(shot.name).toBe(`screenshot-${sub.submissionId}.png`);
-    expect(shot.size).toBe(3);
+    expect(form.has("screenshot")).toBe(false);
     const ann = form.get(FORM_FIELDS.annotatedScreenshot) as File;
     expect(ann.name).toBe(`annotated-screenshot-${sub.submissionId}.jpg`);
   });
@@ -55,7 +52,6 @@ describe("HttpFeedbackTransport request", () => {
     const result = await new HttpFeedbackTransport({ endpoint: "/x", fetch }).submit(sub, {});
     expect(result.ok && result.duplicate).toBe(true);
     const form = fetch.mock.calls[0]![1]!.body as FormData;
-    expect(form.has(FORM_FIELDS.screenshot)).toBe(false);
     expect(form.has(FORM_FIELDS.annotatedScreenshot)).toBe(false);
   });
 });

@@ -55,6 +55,7 @@ export const de = defineLocale({
     "tool.pin": "Pin",
     "tool.arrow": "Pfeil",
     "tool.rectangle": "Rechteck",
+    "tool.redaction": "Schwärzen",
     "tool.freehand": "Zeichnen",
     "tool.text": "Text",
 
@@ -169,6 +170,9 @@ export const de = defineLocale({
     "arrow.added": "Pfeil hinzugefügt",
     "arrow.moved": "Pfeil verschoben",
     "arrow.deleted": "Pfeil gelöscht",
+    "redaction.added": "Schwärzung hinzugefügt",
+    "redaction.moved": "Schwärzung verschoben",
+    "redaction.deleted": "Schwärzung gelöscht",
     "rectangle.added": "Rechteck hinzugefügt",
     "rectangle.moved": "Rechteck verschoben",
     "rectangle.deleted": "Rechteck gelöscht",
@@ -255,14 +259,12 @@ export const de = defineLocale({
 
     headingDescription: "Beschreibung",
     headingAnnotatedScreenshot: "Screenshot mit Markierungen",
-    headingOriginalScreenshot: "Original-Screenshot",
     headingAnnotations: "Markierungen",
     headingCaptureNotes: "Hinweise zur Aufnahme",
     headingEnvironment: "Umgebung",
 
     noDescription: "Keine Beschreibung angegeben.",
     captionAnnotatedScreenshot: "Screenshot mit Markierungen",
-    captionOriginalScreenshot: "Originalaufnahme ohne Markierungen",
 
     fieldLabel: "{label}: ",
     pinNumber: "#{number}",
@@ -271,6 +273,7 @@ export const de = defineLocale({
     quotedText: "„{text}“",
     shapesLabel: "Formen",
     arrowCount: { one: "# Pfeil", other: "# Pfeile" },
+    redactionCount: { one: "# Schwärzung", other: "# Schwärzungen" },
     rectangleCount: { one: "# Rechteck", other: "# Rechtecke" },
     freehandCount: { one: "# Freihandzeichnung", other: "# Freihandzeichnungen" },
 
