@@ -376,6 +376,51 @@ describe("DomScreenshotCapturer", () => {
     expect(clone?.style.getPropertyValue("position")).toBe("relative");
   });
 
+  describe("body background", () => {
+    const captureClone = async () => {
+      let clone: HTMLElement | undefined;
+      let received: RenderOptions | undefined;
+      domToBlobMock.mockImplementation(async (node: unknown, options?: RenderOptions) => {
+        received = options;
+        clone = (node as HTMLElement).cloneNode(true) as HTMLElement;
+        await options?.onCloneNode?.(clone);
+        return pngBlob();
+      });
+      await new DomScreenshotCapturer().capture();
+      const body = Array.from(clone?.children ?? []).find((el) => el.localName === "body") as HTMLElement;
+      return { body, received };
+    };
+
+    afterEach(() => {
+      document.documentElement.style.removeProperty("background-color");
+      document.body.style.removeProperty("background-color");
+    });
+
+    it("moves the body colour to the canvas so negative z-index layers stay visible", async () => {
+      document.body.style.backgroundColor = "rgb(245, 245, 245)";
+      const { body, received } = await captureClone();
+      expect(received?.backgroundColor).toBe("rgb(245, 245, 245)");
+      expect(body.style.getPropertyValue("background-color")).toBe("transparent");
+      expect(body.style.getPropertyPriority("background-color")).toBe("important");
+      expect(document.body.style.backgroundColor).toBe("rgb(245, 245, 245)");
+    });
+
+    it("keeps the body colour when <html> has its own background", async () => {
+      document.documentElement.style.backgroundColor = "rgb(0, 0, 0)";
+      document.body.style.backgroundColor = "rgb(245, 245, 245)";
+      const { body, received } = await captureClone();
+      expect(received?.backgroundColor).toBe("rgb(0, 0, 0)");
+      expect(body.style.getPropertyValue("background-color")).toBe("rgb(245, 245, 245)");
+    });
+
+    it("treats only a zero alpha as transparent, not black", async () => {
+      document.body.style.backgroundColor = "rgb(0, 0, 0)";
+      const { body, received } = await captureClone();
+      expect(received?.backgroundColor).toBe("rgb(0, 0, 0)");
+      expect(body.style.getPropertyValue("background-color")).toBe("transparent");
+    });
+  });
+
   it("reports visible images that fail to load and skips downloading off-screen ones", async () => {
     stubLayout();
     document.body.innerHTML = `<img src="https://cdn.example.net/a.png"><img src="https://cdn.example.net/off.png" data-offscreen>`;
