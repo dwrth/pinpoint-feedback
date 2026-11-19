@@ -21,7 +21,7 @@ Details:
 - **Scroll position** is kept: the clone is shifted by the scroll offset, so the screenshot shows exactly what was on screen, not the top of the page.
 - **Sticky elements** (`position: sticky`) are measured live and drawn at their stuck position.
 - **Fixed elements** appear where they were in the viewport.
-- **Background** is the computed background color of `<html>`, then `<body>`, else white.
+- **Background** is the computed background color of `<html>`, then `<body>`, else white. As in the browser, a `<body>` color used this way is painted beneath everything, so `position: fixed` page backgrounds with a negative `z-index` stay visible.
 - **Excluded elements** (the widget itself and anything with `data-pinpoint-ignore`) are left out of the clone.
 - **Timeouts**: 10 s per image request, 30 s for the whole capture.
 - **Off-screen media is skipped**: images used only outside the viewport aren't downloaded, and unloaded off-screen images (e.g. `loading="lazy"` below the fold) and videos don't delay the capture. This uses temporary property overrides on those elements while the capture runs; attributes, loading and events are untouched.

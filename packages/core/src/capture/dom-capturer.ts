@@ -51,6 +51,8 @@ interface RenderContext {
   marks: Map<string, MarkInfo>;
   bodyTransform: string;
   shiftRoot: boolean;
+  /** The body's background colour is painted on the page canvas, so the clone must not paint it on the body box. */
+  bodyPaintsCanvas: boolean;
   backgroundColor: string;
   state: RenderState;
   /** Image URLs used only by elements outside the viewport; not downloaded. */
@@ -72,7 +74,7 @@ export function getScrollPosition(win: Window): Point {
 }
 
 function isTransparent(color: string): boolean {
-  return !color || color === "transparent" || /[,/]\s*0(\.0+)?\s*\)$/.test(color);
+  return !color || color === "transparent" || /(^rgba\((?:[^,]+,){3}|\/)\s*0(\.0+)?\s*\)$/.test(color);
 }
 
 function resolveBackgroundColor(doc: Document): string {
@@ -82,6 +84,19 @@ function resolveBackgroundColor(doc: Document): string {
     if (!isTransparent(color)) return color;
   }
   return "#ffffff";
+}
+
+/**
+ * Browsers paint the body's background on the canvas when <html> has none, beneath every layer,
+ * including negative z-index ones. In the clone, <html> is no longer the root, so the body would
+ * paint that colour on its own box and cover those layers.
+ */
+function bodyPaintsCanvas(doc: Document): boolean {
+  const view = doc.defaultView;
+  if (!doc.body || !view) return false;
+  const html = view.getComputedStyle(doc.documentElement);
+  if (!isTransparent(html.backgroundColor) || (html.backgroundImage && html.backgroundImage !== "none")) return false;
+  return !isTransparent(view.getComputedStyle(doc.body).backgroundColor);
 }
 
 function elementSize(element: Element): Size {
@@ -202,6 +217,7 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
         marks,
         bodyTransform: doc.body ? (win.getComputedStyle(doc.body).transform || "none") : "none",
         shiftRoot: doc.compatMode !== "BackCompat",
+        bodyPaintsCanvas: bodyPaintsCanvas(doc),
         backgroundColor: this.config.backgroundColor ?? resolveBackgroundColor(doc),
         state,
         offscreenOnlyImages,
@@ -310,12 +326,15 @@ export class DomScreenshotCapturer implements ScreenshotCapturer {
     const { scroll } = context;
 
     root.style.setProperty("overflow", "visible", "important");
+    const body = Array.from(root.children).find((child) => child.localName === "body") as HTMLElement | undefined;
+    if (context.bodyPaintsCanvas && body?.style) {
+      body.style.setProperty("background-color", "transparent", "important");
+    }
     if (context.shiftRoot) {
       root.style.setProperty("position", "relative", "important");
       root.style.setProperty("top", `${-scroll.y}px`, "important");
       root.style.setProperty("left", `${-scroll.x}px`, "important");
       if (scroll.x !== 0 || scroll.y !== 0) {
-        const body = Array.from(root.children).find((child) => child.localName === "body") as HTMLElement | undefined;
         if (body?.style) {
           if (context.bodyTransform === "none") body.style.removeProperty("transform");
           else body.style.setProperty("transform", context.bodyTransform);
